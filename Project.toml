@@ -1,0 +1,10 @@
+name = "RNNTrialStructures"
+uuid = "1c0943b8-e38f-498f-b6a0-1f910535fd85"
+authors = ["Roger Heirkstad <roger.herikstad@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+Test = "1.11.0"
