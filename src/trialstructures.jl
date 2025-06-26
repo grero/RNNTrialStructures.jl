@@ -3,6 +3,18 @@ abstract type AbstractPositionPatternTrial{T<:Real} <: AbstractTrialStruct{T} en
 
 abstract type Trial{T<:Real} end
 
+function create_mask(i, go_cue_onset, grace_period, modifier::T,pmodifier::T=one(T)) where T <: Real
+    q = zero(T)
+    if i < go_cue_onset
+        q = pmodifier
+    elseif i < go_cue_onset+grace_period
+        q = zero(T)
+    else
+        q = modifier
+    end
+    return q
+end
+
 penalty(::Type{AbstractTrialStruct}) = error("Not implemented")
 # general fallback
 penalty(trial::T) where T<: AbstractTrialStruct = penalty(T)
