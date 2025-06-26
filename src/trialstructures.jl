@@ -541,10 +541,13 @@ num_stimuli(trial::MultipleAngleTrial) = trial.nangles
 get_trialid(trial::MultipleAngleTrial{T};rng=Random.default_rng()) where T <: Real = T(2π).*rand(rng, T,trial.nangles)
 
 function get_trialid(trial::MultipleAngleTrial{T}, constraint_factor::T;rng=Random.default_rng()) where T <: Real
+    θ1 = T(2π)*rand(rng, T)
+    if trial.nangles == 1
+        return [θ1]
+    end
     0.0 <= constraint_factor <= 1.0 || error("Constraint factor should be beween 0 and 1")
     # only really works for two inputs
     a = T(π)
-    θ1 = T(2π)*rand(rng, T)
     d = (T(2.0) - 2*constraint_factor)*rand(rng,T) + constraint_factor 
     s = rand(rng, [-T(1.0),T(1.0)])
     θ2 = mod(θ1 + a*d*s,T(2π))
