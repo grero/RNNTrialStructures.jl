@@ -1,4 +1,6 @@
 module RNNTrialStructures
+using Random
+using StatsBase
 
 include("trialstructures.jl")
 
