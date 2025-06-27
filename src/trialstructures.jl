@@ -615,3 +615,33 @@ function matches(trial::MultipleAngleTrial{T}, output::AbstractMatrix{T}, output
     return pp
 end
 
+
+function matches(trial::MultipleAngleTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3}) where T <: Real
+    angular_pref = trial.preference
+    θ = angular_pref.μ
+    nθ = length(θ)
+    θ = [θ;zero(T)]
+    sθ = sin.(θ)
+    cθ = cos.(θ)
+    Δ = Float32(2π)/length(angular_pref.μ)
+    pp = zeros(T, trial.nangles)
+    W = zeros(T, size(output)...)
+    for jj in axes(pp,1)
+        fill!(W, zero(T))
+        idx1 = trial.response_onset[jj]
+        idx2 = trial.response_offset[jj]
+        W[1:nθ, idx1:idx2,:] .= one(T)
+        sumrrn = sum(W, dims=2)
+        rr = mean(W.*output, dims=2) # this creates NaNs
+        sumrr = sum(rr, dims=1)
+        θrr = atan.(sum(rr.*sθ,dims=1)./sumrr, sum(rr.*cθ,dims=1)./sumrr)
+
+        rr_true = mean(W.*output_true, dims=2)
+        sumrr_true = sum(rr_true)
+        θrr_true = atan.(sum(rr_true.*sθ,dims=1)./sumrr_true, sum(rr_true.*cθ,dims=1)./sumrr_true)
+
+        pp[jj] = mean(cos.(θrr .- θrr_true) .> cos(Δ))
+    end
+    return pp
+end
+
