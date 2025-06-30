@@ -3,6 +3,18 @@ abstract type AbstractPositionPatternTrial{T<:Real} <: AbstractTrialStruct{T} en
 
 abstract type Trial{T<:Real} end
 
+function create_mask(i, go_cue_onset, grace_period, modifier::T,pmodifier::T=one(T)) where T <: Real
+    q = zero(T)
+    if i < go_cue_onset
+        q = pmodifier
+    elseif i < go_cue_onset+grace_period
+        q = zero(T)
+    else
+        q = modifier
+    end
+    return q
+end
+
 penalty(::Type{AbstractTrialStruct}) = error("Not implemented")
 # general fallback
 penalty(trial::T) where T<: AbstractTrialStruct = penalty(T)
@@ -529,10 +541,13 @@ num_stimuli(trial::MultipleAngleTrial) = trial.nangles
 get_trialid(trial::MultipleAngleTrial{T};rng=Random.default_rng()) where T <: Real = T(2π).*rand(rng, T,trial.nangles)
 
 function get_trialid(trial::MultipleAngleTrial{T}, constraint_factor::T;rng=Random.default_rng()) where T <: Real
+    θ1 = T(2π)*rand(rng, T)
+    if trial.nangles == 1
+        return [θ1]
+    end
     0.0 <= constraint_factor <= 1.0 || error("Constraint factor should be beween 0 and 1")
     # only really works for two inputs
     a = T(π)
-    θ1 = T(2π)*rand(rng, T)
     d = (T(2.0) - 2*constraint_factor)*rand(rng,T) + constraint_factor 
     s = rand(rng, [-T(1.0),T(1.0)])
     θ2 = mod(θ1 + a*d*s,T(2π))
@@ -596,6 +611,36 @@ function matches(trial::MultipleAngleTrial{T}, output::AbstractMatrix{T}, output
         θrr_true = atan(sum(rr_true.*sin.(θ))/sumrr_true, sum(rr_true.*cos.(θ))/sumrr_true) 
 
         pp[jj] = cos(θrr - θrr_true) > cos(Δ)
+    end
+    return pp
+end
+
+
+function matches(trial::MultipleAngleTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3}) where T <: Real
+    angular_pref = trial.preference
+    θ = angular_pref.μ
+    nθ = length(θ)
+    θ = [θ;zero(T)]
+    sθ = sin.(θ)
+    cθ = cos.(θ)
+    Δ = Float32(2π)/length(angular_pref.μ)
+    pp = zeros(T, trial.nangles)
+    W = zeros(T, size(output)...)
+    for jj in axes(pp,1)
+        fill!(W, zero(T))
+        idx1 = trial.response_onset[jj]
+        idx2 = trial.response_offset[jj]
+        W[1:nθ, idx1:idx2,:] .= one(T)
+        sumrrn = sum(W, dims=2)
+        rr = mean(W.*output, dims=2) # this creates NaNs
+        sumrr = sum(rr, dims=1)
+        θrr = atan.(sum(rr.*sθ,dims=1)./sumrr, sum(rr.*cθ,dims=1)./sumrr)
+
+        rr_true = mean(W.*output_true, dims=2)
+        sumrr_true = sum(rr_true)
+        θrr_true = atan.(sum(rr_true.*sθ,dims=1)./sumrr_true, sum(rr_true.*cθ,dims=1)./sumrr_true)
+
+        pp[jj] = mean(cos.(θrr .- θrr_true) .> cos(Δ))
     end
     return pp
 end
