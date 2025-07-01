@@ -662,7 +662,12 @@ function matches(trial::MultipleAngleTrial{T}, output::AbstractArray{T,3}, outpu
         sumrr_true = sum(rr_true)
         θrr_true = atan.(sum(rr_true.*sθ,dims=1)./sumrr_true, sum(rr_true.*cθ,dims=1)./sumrr_true)
 
-        pp[jj] = mean(cos.(θrr .- θrr_true) .> cos(Δ))
+        # TODO: Also check for fixation
+        fill!(W,zero(T))
+        W[1:nθ,1:idx1-1,:] .= one(T)
+        rrt = maximum(maximum(W.*output,dims=2),dims=1)
+
+        pp[jj] = mean((rrt .< 0.2f0).*(cos.(θrr .- θrr_true) .> cos(Δ)))
     end
     return pp
 end
