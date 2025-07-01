@@ -1,6 +1,7 @@
 module RNNTrialStructures
 using Random
 using StatsBase
+using CRC32c
 
 include("trialstructures.jl")
 
