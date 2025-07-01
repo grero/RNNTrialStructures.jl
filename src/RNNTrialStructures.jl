@@ -4,12 +4,35 @@ using StatsBase
 
 include("trialstructures.jl")
 
+mutable struct TrialIterator
+    data_provider::Function
+    state::Int64
+end
+
+TrialIterator(func) = TrialIterator(func, 0)
+
+
+function (trial::TrialIterator)()
+    trial.state += 1
+    trial.data_provider()
+end
+
+function Base.iterate(trial::TrialIterator, state)
+    trial.state = state
+    trial.state += 1
+    trial.data_provider(), trial.state
+end
+
+function Base.iterate(trial::TrialIterator)
+    trial.data_provider(),0
+end
+
 function generate_trials(trialstruct::AbstractTrialStruct{T}, ntrials::Int64;randomize_go_cue=true, randomize_grace_period=false, go_cue_onset_min::T=zero(T), go_cue_onset_max::T=go_cue_onset_min,
                                                       grace_period_min::T=zero(T), grace_period_max=grace_period_min,
                                                       post_cue_multiplier::T=T(2.0), pre_cue_multiplier::T=one(T),
                                                       σ=zero(T), constraint_factor::T=T(0.0),rng=Random.default_rng()) where T <: Real
 
-    function data_provider()
+    TrialIterator(function data_provider()
         dt = trialstruct.dt
         ninput = num_inputs(trialstruct)
         noutput = num_outputs(trialstruct)
@@ -40,7 +63,7 @@ function generate_trials(trialstruct::AbstractTrialStruct{T}, ntrials::Int64;ran
          end
         input .+= σ.*randn(rng, size(input)...)
         input,output, output_mask
-    end
+    end)
 end
 
 end # module RNNTrialStructures
