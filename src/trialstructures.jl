@@ -30,6 +30,15 @@ struct AngularPreference{T<:Real}
     a::T
 end
 
+function signature(apref::AngularPreference{T}, h=zero(UInt32)) where T <: Real
+    for _μ in apref.μ
+        h = crc32c(string(_μ), h)
+    end
+    h = crc32c(string(apref.σ),h)
+    h = crc32c(string(apref.a),h)
+    h
+end
+
 function (apref::AngularPreference{T})(θ::T) where T <: Real
     b = T(2π)
     κ = apref.σ
@@ -485,6 +494,19 @@ struct MultipleAngleTrial{T<:Real} <: AbstractTrialStruct{T}
     tdim::Int64
     dt::T
     preference::AngularPreference{T}
+end
+
+function signature(trial::MultipleAngleTrial{T},h=zero(UInt32)) where T <: Real
+    for q in [trial.input_onset, trial.input_offset, trial.response_onset, trial.response_offset]
+        for ii in q
+            h = crc32c(string(ii), h)
+        end
+    end
+    h = crc32c(string(trial.nangles),h)
+    h = crc32c(string(trial.tdim),h)
+    h = crc32c(string(trial.dt),h)
+    h = signature(trial.preference,h)
+    h
 end
 
 function MultipleAngleTrial(first_onset::T, input_duration::T, delays::Vector{T}, output_duration::T, nangles::Int64, dt::T, preference::AngularPreference{T}) where T <: Real
