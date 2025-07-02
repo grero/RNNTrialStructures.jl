@@ -3,6 +3,9 @@ abstract type AbstractPositionPatternTrial{T<:Real} <: AbstractTrialStruct{T} en
 
 abstract type Trial{T<:Real} end
 
+get_name(::Type{T})  where T <: AbstractTrialStruct{T2} where T2 <: Real = error("Not implemented")
+get_name(x::T)  where T <: AbstractTrialStruct{T2} where T2 <: Real = get_name(T)
+
 function create_mask(i, go_cue_onset, grace_period, modifier::T,pmodifier::T=one(T)) where T <: Real
     q = zero(T)
     if i < go_cue_onset
@@ -495,6 +498,8 @@ struct MultipleAngleTrial{T<:Real} <: AbstractTrialStruct{T}
     dt::T
     preference::AngularPreference{T}
 end
+
+get_name(::Type{MultipleAngleTrial{T}}) where T <: Real = :MultipleAngleTrial
 
 function signature(trial::MultipleAngleTrial{T},h=zero(UInt32)) where T <: Real
     for q in [trial.input_onset, trial.input_offset, trial.response_onset, trial.response_offset]
