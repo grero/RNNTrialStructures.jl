@@ -568,6 +568,12 @@ num_stimuli(trial::MultipleAngleTrial) = trial.nangles
 get_trialid(trial::MultipleAngleTrial{T};rng=Random.default_rng()) where T <: Real = T(2π).*rand(rng, T,trial.nangles)
 
 function get_trialid(trial::MultipleAngleTrial{T}, constraint_factor::T;rng=Random.default_rng()) where T <: Real
+    if constraint_factor == zero(T)
+        return get_trialid(trial;rng=rng)
+    end
+    if trial.nangles > 2
+        error("Constraints only work for 2 angles currently")
+    end
     θ1 = T(2π)*rand(rng, T)
     if trial.nangles == 1
         return [θ1]
