@@ -59,7 +59,7 @@ function generate_trials(trialstruct::AbstractTrialStruct{T}, ntrials::Int64;ran
         # account for the fact that varying go-cue could extend the trial
         nsteps += round(Int64, ceil(go_cue_onset_max/dt))
         input = zeros(T, ninput, nsteps, ntrials)
-        output = zeros(T, noutput, nsteps, ntrials)
+        output = fill(T(0.05), noutput, nsteps, ntrials)
         output_mask = zeros(T, noutput, nsteps, ntrials)
         # by default, the go-cue onset coincides  with the first response onset
         go_cue_onset = trialstruct.response_onset[1]-1
