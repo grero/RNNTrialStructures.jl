@@ -607,6 +607,7 @@ function (trial::MultipleAngleTrial{T})(θ::Vector{T},go_cue_onset::Int64=0) whe
     nt = length(θ)
     nn = length(trial.preference.μ)
     nsteps = trial.tdim
+    nsteps += go_cue_onset
     input = zeros(T, nn+1, nsteps)
     output = fill(T(0.05), nn+1, nsteps)
     for (ii,_θ) in enumerate(θ)
@@ -619,10 +620,10 @@ function (trial::MultipleAngleTrial{T})(θ::Vector{T},go_cue_onset::Int64=0) whe
         output[1:end-1,idx1:idx2] .+= 0.75*trial.preference(_θ)
     end
     # set fixation input
-    input[end, 1:trial.response_onset[1]-1] .= 1.0
+    input[end, 1:trial.response_onset[1]+go_cue_onset-1] .= 1.0
     # have the model reproduce the fixation output as well
     # ideally we shouldn't have this, but it could help the model earn faster
-    output[end, 1:trial.response_onset[1]-1] .+= 0.75
+    output[end, 1:trial.response_onset[1]+go_cue_onset-1] .+= 0.75
     input, output
 end
 

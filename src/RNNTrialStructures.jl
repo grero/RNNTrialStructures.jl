@@ -56,10 +56,13 @@ function generate_trials(trialstruct::AbstractTrialStruct{T}, ntrials::Int64;ran
         ninput = num_inputs(trialstruct)
         noutput = num_outputs(trialstruct)
         nsteps = trialstruct.tdim
+        # account for the fact that varying go-cue could extend the trial
+        nsteps += round(Int64, ceil(go_cue_onset_max/dt))
         input = zeros(T, ninput, nsteps, ntrials)
         output = zeros(T, noutput, nsteps, ntrials)
         output_mask = zeros(T, noutput, nsteps, ntrials)
-        go_cue_onset = trialstruct.input_offset[end]
+        # by default, the go-cue onset coincides  with the first response onset
+        go_cue_onset = trialstruct.response_onset[1]-1
         for i in 1:ntrials
             trialid = get_trialid(trialstruct,constraint_factor;rng=rng)
             if randomize_go_cue
@@ -75,8 +78,7 @@ function generate_trials(trialstruct::AbstractTrialStruct{T}, ntrials::Int64;ran
             _input, _output = trialstruct(trialid, _go_cue_onset)
             input[:,1:size(_input,2),i] = _input
             output[:,1:size(_output,2),i] = _output
-            go_cue_onset += _go_cue_onset
-            aa = [create_mask(i, go_cue_onset, _grace_period, post_cue_multiplier, pre_cue_multiplier) for i in 1:nsteps, j in 1:noutput]
+            aa = [create_mask(i, go_cue_onset+_go_cue_onset, _grace_period, post_cue_multiplier, pre_cue_multiplier) for i in 1:nsteps, j in 1:noutput]
 
             output_mask[:,:,i] .= permutedims(aa)
          end
