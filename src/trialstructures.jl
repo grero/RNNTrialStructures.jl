@@ -568,6 +568,12 @@ num_stimuli(trial::MultipleAngleTrial) = trial.nangles
 get_trialid(trial::MultipleAngleTrial{T};rng=Random.default_rng()) where T <: Real = T(2π).*rand(rng, T,trial.nangles)
 
 function get_trialid(trial::MultipleAngleTrial{T}, constraint_factor::T;rng=Random.default_rng()) where T <: Real
+    if constraint_factor == zero(T)
+        return get_trialid(trial;rng=rng)
+    end
+    if trial.nangles > 2
+        error("Constraints only work for 2 angles currently")
+    end
     θ1 = T(2π)*rand(rng, T)
     if trial.nangles == 1
         return [θ1]
@@ -601,6 +607,7 @@ function (trial::MultipleAngleTrial{T})(θ::Vector{T},go_cue_onset::Int64=0) whe
     nt = length(θ)
     nn = length(trial.preference.μ)
     nsteps = trial.tdim
+    nsteps += go_cue_onset
     input = zeros(T, nn+1, nsteps)
     output = fill(T(0.05), nn+1, nsteps)
     for (ii,_θ) in enumerate(θ)
@@ -613,10 +620,10 @@ function (trial::MultipleAngleTrial{T})(θ::Vector{T},go_cue_onset::Int64=0) whe
         output[1:end-1,idx1:idx2] .+= 0.75*trial.preference(_θ)
     end
     # set fixation input
-    input[end, 1:trial.response_onset[1]-1] .= 1.0
+    input[end, 1:trial.response_onset[1]+go_cue_onset-1] .= 1.0
     # have the model reproduce the fixation output as well
     # ideally we shouldn't have this, but it could help the model earn faster
-    output[end, 1:trial.response_onset[1]-1] .+= 0.75
+    output[end, 1:trial.response_onset[1]+go_cue_onset-1] .+= 0.75
     input, output
 end
 
@@ -643,7 +650,7 @@ function matches(trial::MultipleAngleTrial{T}, output::AbstractMatrix{T}, output
 end
 
 
-function matches(trial::MultipleAngleTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3}) where T <: Real
+function matches(trial::MultipleAngleTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3};require_fixation=true) where T <: Real
     angular_pref = trial.preference
     θ = angular_pref.μ
     nθ = length(θ)
@@ -667,12 +674,15 @@ function matches(trial::MultipleAngleTrial{T}, output::AbstractArray{T,3}, outpu
         sumrr_true = sum(rr_true)
         θrr_true = atan.(sum(rr_true.*sθ,dims=1)./sumrr_true, sum(rr_true.*cθ,dims=1)./sumrr_true)
 
-        # TODO: Also check for fixation
-        fill!(W,zero(T))
-        W[1:nθ,1:idx1-1,:] .= one(T)
-        rrt = maximum(maximum(W.*output,dims=2),dims=1)
-
-        pp[jj] = mean((rrt .< 0.2f0).*(cos.(θrr .- θrr_true) .> cos(Δ)))
+        if require_fixation
+            fill!(W,zero(T))
+            # allow 5 points before response onset
+            W[1:nθ,1:idx1-5,:] .= one(T)
+            rrt = maximum(maximum(W.*output,dims=2),dims=1)
+            pp[jj] = mean((rrt .< 0.2f0).*(cos.(θrr .- θrr_true) .> cos(Δ)))
+        else
+            pp[jj] = mean(cos.(θrr .- θrr_true) .> cos(Δ))
+        end
     end
     return pp
 end
