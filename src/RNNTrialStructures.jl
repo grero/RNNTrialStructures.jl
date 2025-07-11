@@ -36,7 +36,7 @@ function generate_trials(trialstruct::AbstractTrialStruct{T}, ntrials::Int64;ran
 
     Random.seed!(rng, rseed)
     #generate a hash of the arguments
-    h = zero(UInt32)
+    h = signature(trialstruct)
     h = crc32c(string(ntrials), h)
     h = crc32c(string(randomize_go_cue), h)
     h = crc32c(string(randomize_grace_period),h)
