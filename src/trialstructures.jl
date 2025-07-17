@@ -603,7 +603,7 @@ function get_nsteps(trial::MultipleAngleTrial{T},n::Int64, dt,go_cue_onset=zero(
     tdim
 end
 
-function (trial::MultipleAngleTrial{T})(θ::Vector{T},go_cue_onset::Int64=0) where T <: Real
+function (trial::MultipleAngleTrial{T})(θ::Vector{T},go_cue_onset::Int64=0, stim_onset::Vector{Int64}=zeros(Int64, trial.nangles)) where T <: Real
     nt = length(θ)
     nn = length(trial.preference.μ)
     nsteps = trial.tdim
@@ -611,8 +611,8 @@ function (trial::MultipleAngleTrial{T})(θ::Vector{T},go_cue_onset::Int64=0) whe
     input = zeros(T, nn+1, nsteps)
     output = fill(T(0.05), nn+1, nsteps)
     for (ii,_θ) in enumerate(θ)
-        idx1 = trial.input_onset[ii]
-        idx2 = trial.input_offset[ii]
+        idx1 = trial.input_onset[ii] + stim_onset[ii]
+        idx2 = trial.input_offset[ii] + stim_onset[ii]
         input[1:end-1,idx1:idx2] .= trial.preference(_θ)
         idx1 = trial.response_onset[ii] + go_cue_onset
         idx2 = trial.response_offset[ii] + go_cue_onset
@@ -649,6 +649,55 @@ function matches(trial::MultipleAngleTrial{T}, output::AbstractMatrix{T}, output
     return pp
 end
 
+
+function performance(trial::MultipleAngleTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3};Δ::Int64=0, require_fixation=true) where T <: Real
+    angular_pref = trial.preference
+    θ = angular_pref.μ
+    nθ = length(θ)
+    θ = [θ;zero(T)]
+    sθ = sin.(θ)
+    cθ = cos.(θ)
+    Δ = Float32(2π)/length(angular_pref.μ)
+    pp = zeros(T, trial.nangles)
+    ppq = zeros(T, trial.nangles)
+
+    W = zeros(T, size(output,1), size(output,2))
+    W2 = zeros(T, size(output,1))
+    W2[end] = one(T)
+    # loop over trials
+    for (output_t, output_true_t) in zip(eachslice(output,dims=3), eachslice(output_true,dims=3))
+        # figure out the go-cue
+        idxc = findlast(dropdims(W2'*output_true_t,dims=1) .> T(0.2))
+        idx1 = idxc+1
+        for jj in axes(pp,1)
+            fill!(W, zero(T))
+            idx2 = idx1 + trial.response_offset[jj] - trial.response_onset[jj]-1
+            W[1:nθ, idx1:idx2] .= one(T)
+            sumrrn = sum(W, dims=2)
+            rr = mean(W.*output_t, dims=2) # this creates NaNs
+            sumrr = sum(rr, dims=1)
+            θrr = atan.(sum(rr.*sθ,dims=1)./sumrr, sum(rr.*cθ,dims=1)./sumrr)
+
+            rr_true = mean(W.*output_true_t, dims=2)
+            sumrr_true = sum(rr_true)
+            θrr_true = atan.(sum(rr_true.*sθ,dims=1)./sumrr_true, sum(rr_true.*cθ,dims=1)./sumrr_true)
+            ppq[jj] = mean(cos.(θrr .- θrr_true) .> cos(Δ))
+            idx1 = idx2+1
+        end
+
+        if require_fixation
+            fill!(W,zero(T))
+            # allow 5 points before response onset
+            W[1:nθ,1:idxc-5] .= one(T)
+            rrt = maximum(W.*output_t)
+            pp .+=(rrt < 0.2f0).*ppq
+        else
+            pp .+= ppq
+        end
+    end
+    pp ./= size(output,3)
+    pp
+end
 
 function matches(trial::MultipleAngleTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3};require_fixation=true) where T <: Real
     angular_pref = trial.preference
@@ -687,3 +736,24 @@ function matches(trial::MultipleAngleTrial{T}, output::AbstractArray{T,3}, outpu
     return pp
 end
 
+function readout(trialstruct::MultipleAngleTrial{T}, x::Vector{T}) where T <: Real
+    μ = trialstruct.preference.μ
+    a = sum(x.*cos.(μ))
+    b = sum(x.*sin.(μ))
+    atan(b,a)
+end
+
+"""
+Read out each of the angular responses
+"""
+function readout(trialstruct::MultipleAngleTrial{T}, y::Array{T,3}) where T <: Real
+    ntrials = size(y,3)
+    θ = zeros(T, ntrials, trialstruct.nangles)
+    for j in axes(θ,2)
+        idx0 = trialstruct.response_onset[j]
+        idx1 = trialstruct.response_offset[j]
+        yp = dropdims(mean(y[1:end-1,idx0:idx1,:],dims=2),dims=2)
+        θ[:,j] = dropdims(mapslices(x->readout(trialstruct,x), yp,dims=1),dims=1)
+    end
+    θ
+end
