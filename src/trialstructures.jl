@@ -687,3 +687,24 @@ function matches(trial::MultipleAngleTrial{T}, output::AbstractArray{T,3}, outpu
     return pp
 end
 
+function readout(trialstruct::MultipleAngleTrial{T}, x::Vector{T}) where T <: Real
+    μ = trialstruct.preference.μ
+    a = sum(x.*cos.(μ))
+    b = sum(x.*sin.(μ))
+    atan(b,a)
+end
+
+"""
+Read out each of the angular responses
+"""
+function readout(trialstruct::MultipleAngleTrial{T}, y::Array{T,3}) where T <: Real
+    ntrials = size(y,3)
+    θ = zeros(T, ntrials, trialstruct.nangles)
+    for j in axes(θ,2)
+        idx0 = trialstruct.response_onset[j]
+        idx1 = trialstruct.response_offset[j]
+        yp = dropdims(mean(y[1:end-1,idx0:idx1,:],dims=2),dims=2)
+        θ[:,j] = dropdims(mapslices(x->readout(trialstruct,x), yp,dims=1),dims=1)
+    end
+    θ
+end
