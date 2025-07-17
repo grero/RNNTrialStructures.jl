@@ -650,6 +650,55 @@ function matches(trial::MultipleAngleTrial{T}, output::AbstractMatrix{T}, output
 end
 
 
+function performance(trial::MultipleAngleTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3};Δ::Int64=0, require_fixation=true) where T <: Real
+    angular_pref = trial.preference
+    θ = angular_pref.μ
+    nθ = length(θ)
+    θ = [θ;zero(T)]
+    sθ = sin.(θ)
+    cθ = cos.(θ)
+    Δ = Float32(2π)/length(angular_pref.μ)
+    pp = zeros(T, trial.nangles)
+    ppq = zeros(T, trial.nangles)
+
+    W = zeros(T, size(output,1), size(output,2))
+    W2 = zeros(T, size(output,1))
+    W2[end] = one(T)
+    # loop over trials
+    for (output_t, output_true_t) in zip(eachslice(output,dims=3), eachslice(output_true,dims=3))
+        # figure out the go-cue
+        idxc = findlast(dropdims(W2'*output_true_t,dims=1) .> T(0.2))
+        idx1 = idxc+1
+        for jj in axes(pp,1)
+            fill!(W, zero(T))
+            idx2 = idx1 + trial.response_offset[jj] - trial.response_onset[jj]-1
+            W[1:nθ, idx1:idx2] .= one(T)
+            sumrrn = sum(W, dims=2)
+            rr = mean(W.*output_t, dims=2) # this creates NaNs
+            sumrr = sum(rr, dims=1)
+            θrr = atan.(sum(rr.*sθ,dims=1)./sumrr, sum(rr.*cθ,dims=1)./sumrr)
+
+            rr_true = mean(W.*output_true_t, dims=2)
+            sumrr_true = sum(rr_true)
+            θrr_true = atan.(sum(rr_true.*sθ,dims=1)./sumrr_true, sum(rr_true.*cθ,dims=1)./sumrr_true)
+            ppq[jj] = mean(cos.(θrr .- θrr_true) .> cos(Δ))
+            idx1 = idx2+1
+        end
+
+        if require_fixation
+            fill!(W,zero(T))
+            # allow 5 points before response onset
+            W[1:nθ,1:idxc-5] .= one(T)
+            rrt = maximum(W.*output_t)
+            pp .+=(rrt < 0.2f0).*ppq
+        else
+            pp .+= ppq
+        end
+    end
+    pp ./= size(output,3)
+    pp
+end
+
 function matches(trial::MultipleAngleTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3};require_fixation=true) where T <: Real
     angular_pref = trial.preference
     θ = angular_pref.μ
