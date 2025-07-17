@@ -603,7 +603,7 @@ function get_nsteps(trial::MultipleAngleTrial{T},n::Int64, dt,go_cue_onset=zero(
     tdim
 end
 
-function (trial::MultipleAngleTrial{T})(θ::Vector{T},go_cue_onset::Int64=0) where T <: Real
+function (trial::MultipleAngleTrial{T})(θ::Vector{T},go_cue_onset::Int64=0, stim_onset::Vector{Int64}=zeros(Int64, trial.nangles)) where T <: Real
     nt = length(θ)
     nn = length(trial.preference.μ)
     nsteps = trial.tdim
@@ -611,8 +611,8 @@ function (trial::MultipleAngleTrial{T})(θ::Vector{T},go_cue_onset::Int64=0) whe
     input = zeros(T, nn+1, nsteps)
     output = fill(T(0.05), nn+1, nsteps)
     for (ii,_θ) in enumerate(θ)
-        idx1 = trial.input_onset[ii]
-        idx2 = trial.input_offset[ii]
+        idx1 = trial.input_onset[ii] + stim_onset[ii]
+        idx2 = trial.input_offset[ii] + stim_onset[ii]
         input[1:end-1,idx1:idx2] .= trial.preference(_θ)
         idx1 = trial.response_onset[ii] + go_cue_onset
         idx2 = trial.response_offset[ii] + go_cue_onset
