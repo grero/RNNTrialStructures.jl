@@ -32,7 +32,7 @@ end
 function generate_trials(trialstruct::AbstractTrialStruct{T}, ntrials::Int64;randomize_go_cue=true, randomize_grace_period=false, go_cue_onset_min::T=zero(T), go_cue_onset_max::T=go_cue_onset_min,
                                                       grace_period_min::T=zero(T), grace_period_max=grace_period_min,
                                                       post_cue_multiplier::T=T(2.0), pre_cue_multiplier::T=one(T),stim_onset_min::Vector{T}=zeros(T,trialstruct.nangles), stim_onset_max::Vector{T}=stim_onset_min,
-                                                      σ=zero(T), constraint_factor::T=T(0.0),rng=Random.default_rng(), rseed=1234) where T <: Real
+                                                      stim_onset_step::Vector{T}=fill(trialstruct.dt, trialstruct.nangles), σ=zero(T), constraint_factor::T=T(0.0),rng=Random.default_rng(), rseed=1234) where T <: Real
 
     Random.seed!(rng, rseed)
     #generate a hash of the arguments
@@ -42,11 +42,14 @@ function generate_trials(trialstruct::AbstractTrialStruct{T}, ntrials::Int64;ran
     h = crc32c(string(randomize_grace_period),h)
     h = crc32c(string(go_cue_onset_min),h)
     h = crc32c(string(go_cue_onset_max),h)
-    if stim_onset_min != zero(T)
+    if any(stim_onset_min .!= zero(T))
         h = crc32c(string(stim_onset_min),h)
     end
-    if stim_onset_max != zero(T)
+    if any(stim_onset_max .!= zero(T))
         h = crc32c(string(stim_onset_max),h)
+    end
+    if any(stim_onset_step .!= trialstruct.dt)
+        h = crc32c(string(stim_onset_step),h)
     end
     h = crc32c(string(grace_period_min),h)
     h = crc32c(string(grace_period_max),h)
@@ -56,7 +59,7 @@ function generate_trials(trialstruct::AbstractTrialStruct{T}, ntrials::Int64;ran
     h = crc32c(string(constraint_factor),h)
     h = crc32c(string(rng),h)
     h = crc32c(string(rseed),h)
-    randomize_stim_2 = stim_onset_max > stim_onset_min
+    randomize_stim_2 = any(stim_onset_max .> stim_onset_min)
     TrialIterator(function data_provider()
         dt = trialstruct.dt
         ninput = num_inputs(trialstruct)
@@ -79,7 +82,8 @@ function generate_trials(trialstruct::AbstractTrialStruct{T}, ntrials::Int64;ran
             end
             if randomize_stim_2
                 for j in 1:trialstruct.nangles
-                    stim_onset_Δ[j] = rand(round(Int64, stim_onset_min[j]/dt):round(Int64,stim_onset_max[j]/dt))
+                    _step = round(Int64, stim_onset_step[j]/dt)
+                    stim_onset_Δ[j] = rand(round(Int64, stim_onset_min[j]/dt):_step:round(Int64,stim_onset_max[j]/dt))
                 end
             end
             if randomize_grace_period
