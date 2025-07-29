@@ -1,4 +1,5 @@
 using RNNTrialStructures
+using StableRNGs
 using Test
 
 @testset "Place cells" begin
@@ -63,5 +64,21 @@ end
         # mutate slightly
         output[idx] -= 0.1
         @test RNNTrialStructures.matches(trial, output, θ, idx)
+    end
+    
+    @testset "RandomSequenceTrial" begin
+        apref = RNNTrialStructures.AngularPreference(collect(range(0.0f0, stop=2.0f0*π, length=32)), 4.1f0, 0.8f0)
+        trialstruct = RNNTrialStructures.RandomSequenceTrial(20.0f0, 20.0f0, 20.0f0, 20.0f0, 2, 9, apref)
+        rng = StableRNG(1234) 
+        θ = RNNTrialStructures.get_trialid(trialstruct, rng)
+        @test length(θ) == 6
+        @test θ ≈ Float32[-2.3134663, 1.9634168, 0.58281016, 1.3592651, 0.077911615, -2.211473]
+        trial_generator = RNNTrialStructures.generate_trials(trialstruct, 256, 20.0f0;σ=0.03f0,rng=rng)
+        x,y,w = trial_generator()
+        nsteps = RNNTrialStructures.get_nsteps(trialstruct,trialstruct.max_seq_length, 20.0f0)
+        @test size(x,2) == size(y,2) == size(w,2) ==  nsteps
+        @test size(x,3) == size(y,3) == size(w,3) == 256
+        pp = RNNTrialStructures.performance(trialstruct, y, y)
+        @test pp ≈ 1.0f0
     end
 end
