@@ -757,3 +757,144 @@ function readout(trialstruct::MultipleAngleTrial{T}, y::Array{T,3}) where T <: R
     end
     θ
 end
+
+get_go_cue_onset(trialstruct::MultipleAngleTrial,args...) = trialstruct.response_onset[1]-1
+
+struct RandomSequenceTrial{T<:Real} <: AbstractTrialStruct{T}
+    input_duration::T
+    delay_duration::T
+    go_cue_duration::T
+    output_duration::T
+    min_seq_length::Int64
+    max_seq_length::Int64
+    apref::AngularPreference{T}
+end
+
+RandomSequenceTrial(apref::AngularPreference{T}) where T <: Real = RandomSequenceTrial(T(20.0), zero(T), T(20.0), T(20.0), 2,9, apref)
+
+num_inputs(trialstruct::RandomSequenceTrial) = length(trialstruct.apref.μ) + 1
+num_outputs(trialstruct::RandomSequenceTrial) = length(trialstruct.apref.μ)
+
+function get_trialid(trialstruct::RandomSequenceTrial{T},rng::AbstractRNG=Random.default_rng()) where T <: Real
+    n = rand(rng, trialstruct.min_seq_length:trialstruct.max_seq_length)
+    get_trialid(trialstruct, n, rng)
+end
+
+function get_trialid(trialstruct::RandomSequenceTrial{T},n::Int64,rng::AbstractRNG=Random.default_rng()) where T <: Real
+    T(2*π)*rand(rng, T, n) .- T(π)
+end
+
+function (trial::RandomSequenceTrial{T})(θ::Vector{T},go_cue_onset::T, stim_onset, dt::T;reverse_output=false) where T <: Real
+    n = length(θ)
+    nq = length(trial.apref.μ)
+    # 
+    input_dur = round(Int64,trial.input_duration/dt)
+    delay_dur = round(Int64, trial.delay_duration/dt)
+    go_cue_dur = round(Int64, trial.go_cue_duration/dt)
+    output_dur = round(Int64,trial.output_duration/dt)
+    # n delays for n inputs
+    nsteps = 2*n*input_dur + n*delay_dur
+    input = zeros(T,nq+1, nsteps)
+    output = fill(T(0.05), nq, nsteps)
+    for i in 1:n
+        offset = (i-1)*(input_dur+delay_dur)
+        pθ = trial.apref(θ[i])
+        input[1:nq,(offset+1):offset+input_dur] .= pθ
+        offset = n*(input_dur+delay_dur)+(i-1)*output_dur
+        if reverse_output
+            # present in reverse order
+            pθ = trial.apref(θ[end-i+1])
+        end
+        output[:,offset+1:offset+output_dur] .+= 0.75*pθ
+    end
+    # go_cue
+    offset = n*(input_dur+delay_dur)
+    input[end,offset+1:offset+go_cue_dur] .= one(T)
+
+    input,output 
+end
+
+function get_nsteps(trial::RandomSequenceTrial{T},n::Int64, dt,go_cue_onset=zero(T)) where T <: Real
+    Δ = round(Int64, go_cue_onset/dt)
+    input_dur = round(Int64, trial.input_duration/dt)
+    delay_dur = round(Int64, trial.delay_duration/dt)
+    output_dur = round(Int64, trial.output_duration/dt)
+    ns = n*(input_dur + delay_dur)
+    ns += n*output_dur + Δ
+    ns
+end
+
+function get_go_cue_onset(trial::RandomSequenceTrial{T}, n::Int64, dt::T, Δ::Int64) where T <: Real
+    input_dur = round(Int64,trial.input_duration/dt)
+    delay_dur = round(Int64, trial.delay_duration/dt)
+    n*(input_dur+delay_dur)+1
+end
+
+function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt::T;rseed::UInt32=UInt32(1234),
+                                                                                    pre_cue_multiplier=one(T),
+                                                                                    post_cue_multiplier=one(T),
+                                                                                    σ=zero(T),
+                                                                                    rng::AbstractRNG=Random.default_rng()) where T <: Real
+    nin = num_inputs(trialstruct)
+    nout = num_outputs(trialstruct)
+    nsteps = get_nsteps(trialstruct, trialstruct.max_seq_length, dt)
+    Random.seed!(rng, rseed)
+    function trial_generator()
+        input = zeros(T, nin, nsteps, ntrials)
+        output = zeros(T, nout, nsteps, ntrials)
+        output_mask = zeros(T, nout, nsteps, ntrials) 
+        for i in 1:ntrials
+            θ = get_trialid(trialstruct, rng)
+            nsteps = get_nsteps(trialstruct, length(θ), dt)
+            go_cue_onset = get_go_cue_onset(trialstruct, length(θ), dt, 0)
+            _input,_output = trialstruct(θ,zero(T), zero(T), dt)
+            input[:,1:nsteps,i] .= _input
+            output[:,1:nsteps,i] .= _output
+            _go_cue_onset = 0
+            aa = [create_mask(i, go_cue_onset+_go_cue_onset, 0, post_cue_multiplier, pre_cue_multiplier) for i in 1:nsteps, j in 1:nout]
+
+            output_mask[:,1:nsteps,i] .= permutedims(aa)
+        end
+        input .+= σ.*randn(rng, size(input)...)
+        return input,output,output_mask
+    end
+end
+
+function performance(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3};Δ::Int64=0, require_fixation=true) where T <: Real
+    angular_pref = trial.apref
+    θ = angular_pref.μ
+    nθ = length(θ)
+    sθ = sin.(θ)
+    cθ = cos.(θ)
+    Δ = Float32(2π)/length(angular_pref.μ)
+
+    pp = zero(T)
+    # loop over trials
+    for (output_t, output_true_t) in zip(eachslice(output,dims=3), eachslice(output_true,dims=3))
+        # figure out the go-cue
+        idxc = findfirst(output_t .> T(0.05))
+        idx1 = idxc.I[2]
+        idx2 = findfirst(dropdims(sum(output_t,dims=1),dims=1) .== zero(T))
+        if idx2 === nothing
+            idx2 = size(output_t,2)
+        else
+            idx2 = idx2 - 1
+        end
+        rr = output_t[:,idx1:idx2]
+        sumrr = sum(rr, dims=1)
+        θrr = atan.(sum(rr.*sθ,dims=1)./sumrr, sum(rr.*cθ,dims=1)./sumrr)
+        rr_true = output_true_t[:,idx1:idx2]
+        sumrr_true = sum(rr_true,dims=1)
+        θrr_true = atan.(sum(rr_true.*sθ,dims=1)./sumrr_true, sum(rr_true.*cθ,dims=1)./sumrr_true)
+        ppq = mean(cos.(θrr .- θrr_true) .> cos(Δ))
+
+        if require_fixation
+            rrt = maximum(output_t[:,1:idx1-1])
+            pp +=(rrt < 0.2f0).*ppq
+        else
+            pp += ppq
+        end
+    end
+    pp /= size(output,3)
+    pp
+end
