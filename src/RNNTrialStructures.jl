@@ -5,13 +5,15 @@ using CRC32c
 
 include("trialstructures.jl")
 
+# TODO: This probably be made into a macro to make things more much simple
 mutable struct TrialIterator
     data_provider::Function
+    args::NamedTuple
     arghash::UInt32
     state::Int64
 end
 
-TrialIterator(func,h) = TrialIterator(func, h,0)
+TrialIterator(func,args, h) = TrialIterator(func, args, h,0)
 
 
 function (trial::TrialIterator)()
