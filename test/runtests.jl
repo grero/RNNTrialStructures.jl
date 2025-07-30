@@ -1,4 +1,5 @@
 using RNNTrialStructures
+using Random
 using StableRNGs
 using Test
 
