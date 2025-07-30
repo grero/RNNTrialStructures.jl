@@ -881,9 +881,9 @@ function performance(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, 
     # loop over trials
     for (output_t, output_true_t) in zip(eachslice(output,dims=3), eachslice(output_true,dims=3))
         # figure out the go-cue
-        idxc = findfirst(output_t .> T(0.05))
+        idxc = findfirst(output_true_t .> T(0.05))
         idx1 = idxc.I[2]
-        idx2 = findfirst(dropdims(sum(output_t,dims=1),dims=1) .== zero(T))
+        idx2 = findfirst(dropdims(sum(output_true_t,dims=1),dims=1) .== zero(T))
         if idx2 === nothing
             idx2 = size(output_t,2)
         else
