@@ -835,10 +835,19 @@ function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt
                                                                                     post_cue_multiplier=one(T),
                                                                                     σ=zero(T),
                                                                                     rng::AbstractRNG=Random.default_rng()) where T <: Real
+    # create a hash of the arguments
+    h = CRC32c.crc32c(string(ntrials))
+    h = CRC32c.crc32c(string(dt), h)
+    h = CRC32c.crc32c(string(rseed), h)
+    h = CRC32c.crc32c(string(pre_cue_multiplier), h)
+    h = CRC32c.crc32c(string(post_cue_multiplier), h)
+    h = CRC32c.crc32c(string(σ), h)
+    h = CRC32c.crc32c(string(rng), h)
     nin = num_inputs(trialstruct)
     nout = num_outputs(trialstruct)
     nsteps = get_nsteps(trialstruct, trialstruct.max_seq_length, dt)
     Random.seed!(rng, rseed)
+    TrialIterator(
     function trial_generator()
         input = zeros(T, nin, nsteps, ntrials)
         output = zeros(T, nout, nsteps, ntrials)
@@ -857,7 +866,7 @@ function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt
         end
         input .+= σ.*randn(rng, size(input)...)
         return input,output,output_mask
-    end
+    end,h)
 end
 
 function performance(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3};Δ::Int64=0, require_fixation=true) where T <: Real
