@@ -70,6 +70,9 @@ end
         apref = RNNTrialStructures.AngularPreference(collect(range(0.0f0, stop=2.0f0*π, length=32)), 4.1f0, 0.8f0)
         trialstruct = RNNTrialStructures.RandomSequenceTrial(20.0f0, 20.0f0, 20.0f0, 20.0f0, 2, 9, apref)
         rng = StableRNG(1234) 
+        θ = RNNTrialStructures.get_trialid(trialstruct, 2, 5, rng)
+        @test θ ≈ Float32[3.1415927, 1.5707964]
+        Random.seed!(rng, 1234)
         θ = RNNTrialStructures.get_trialid(trialstruct, rng)
         @test length(θ) == 6
         @test θ ≈ Float32[-2.3134663, 1.9634168, 0.58281016, 1.3592651, 0.077911615, -2.211473]

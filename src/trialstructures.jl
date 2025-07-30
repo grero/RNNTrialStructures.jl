@@ -784,6 +784,16 @@ function get_trialid(trialstruct::RandomSequenceTrial{T},n::Int64,rng::AbstractR
     T(2*π)*rand(rng, T, n) .- T(π)
 end
 
+"""
+    get_trialid(trialstruct::RandomSequenceTrial{T},n::Int64,m::Int64, rng::AbstractRNG=Random.default_rng()) where T <: Real
+    
+Generate `n` angles from `m` equally spaced possible angles.
+"""
+function get_trialid(trialstruct::RandomSequenceTrial{T},n::Int64,m::Int64, rng::AbstractRNG=Random.default_rng()) where T <: Real
+    pangles = range(-T(π), stop=T(π), length=m)
+    rand(rng, pangles, n)
+end
+
 function (trial::RandomSequenceTrial{T})(θ::Vector{T},go_cue_onset::T, dt::T;reverse_output=false) where T <: Real
     n = length(θ)
     nq = length(trial.apref.μ)
