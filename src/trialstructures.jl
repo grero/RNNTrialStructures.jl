@@ -907,3 +907,15 @@ function performance(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, 
     pp /= size(output,3)
     pp
 end
+
+get_name(::Type{RandomSequenceTrial{T}}) where T <: Real = :RandomSequenceTrial
+
+function signature(trial::RandomSequenceTrial{T},h=zero(UInt32)) where T <: Real
+    for q in [trial.input_duration, trial.delay_duration, trial.go_cue_duration, trial.output_duration, trial.min_seq_length, trial.max_seq_length, ]
+        for ii in q
+            h = crc32c(string(ii), h)
+        end
+    end
+    h = signature(trial.apref,h)
+    h
+end
