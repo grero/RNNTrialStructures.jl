@@ -780,11 +780,26 @@ function get_trialid(trialstruct::RandomSequenceTrial{T},rng::AbstractRNG=Random
     get_trialid(trialstruct, n, rng)
 end
 
+"""
+    get_trialid(trialstruct::RandomSequenceTrial{T},n::Int64,rng::AbstractRNG=Random.default_rng()) where T <: Real
+
+Generate `n` angles randomly sampled between -π and π
+"""
 function get_trialid(trialstruct::RandomSequenceTrial{T},n::Int64,rng::AbstractRNG=Random.default_rng()) where T <: Real
     T(2*π)*rand(rng, T, n) .- T(π)
 end
 
-function (trial::RandomSequenceTrial{T})(θ::Vector{T},go_cue_onset::T, stim_onset, dt::T;reverse_output=false) where T <: Real
+"""
+    get_trialid(trialstruct::RandomSequenceTrial{T},n::Int64,m::Int64, rng::AbstractRNG=Random.default_rng()) where T <: Real
+    
+Generate `n` angles from `m` equally spaced possible angles.
+"""
+function get_trialid(trialstruct::RandomSequenceTrial{T},n::Int64,m::Int64, rng::AbstractRNG=Random.default_rng()) where T <: Real
+    pangles = range(-T(π), stop=T(π), length=m)
+    rand(rng, pangles, n)
+end
+
+function (trial::RandomSequenceTrial{T})(θ::Vector{T},go_cue_onset::T, dt::T;reverse_output=false) where T <: Real
     n = length(θ)
     nq = length(trial.apref.μ)
     # 
@@ -793,7 +808,7 @@ function (trial::RandomSequenceTrial{T})(θ::Vector{T},go_cue_onset::T, stim_ons
     go_cue_dur = round(Int64, trial.go_cue_duration/dt)
     output_dur = round(Int64,trial.output_duration/dt)
     # n delays for n inputs
-    nsteps = 2*n*input_dur + n*delay_dur
+    nsteps = n*(input_dur + delay_dur) + n*output_dur
     input = zeros(T,nq+1, nsteps)
     output = fill(T(0.05), nq, nsteps)
     for i in 1:n
@@ -835,19 +850,28 @@ function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt
                                                                                     post_cue_multiplier=one(T),
                                                                                     σ=zero(T),
                                                                                     rng::AbstractRNG=Random.default_rng()) where T <: Real
+    # create a hash of the arguments
+    # TODO: This is quite clunky
+    args = [(:ntrials, ntrials),(:dt, dt), (:rseed, rseed), (:pre_cue_multiplier, pre_cue_multiplier),(:post_cue_multiplier, post_cue_multiplier), (:σ, σ), (:rng, rng)]
+    h = signature(trialstruct)
+    for (k,v) in args
+        h = CRC32c.crc32c(string(v), h)
+    end
+    pushfirst!(args, (:trialstruct, trialstruct))
     nin = num_inputs(trialstruct)
     nout = num_outputs(trialstruct)
-    nsteps = get_nsteps(trialstruct, trialstruct.max_seq_length, dt)
     Random.seed!(rng, rseed)
+    max_nsteps = get_nsteps(trialstruct, trialstruct.max_seq_length, dt)
+    TrialIterator(
     function trial_generator()
-        input = zeros(T, nin, nsteps, ntrials)
-        output = zeros(T, nout, nsteps, ntrials)
-        output_mask = zeros(T, nout, nsteps, ntrials) 
+        input = zeros(T, nin, max_nsteps, ntrials)
+        output = zeros(T, nout, max_nsteps, ntrials)
+        output_mask = zeros(T, nout, max_nsteps, ntrials) 
         for i in 1:ntrials
             θ = get_trialid(trialstruct, rng)
             nsteps = get_nsteps(trialstruct, length(θ), dt)
             go_cue_onset = get_go_cue_onset(trialstruct, length(θ), dt, 0)
-            _input,_output = trialstruct(θ,zero(T), zero(T), dt)
+            _input,_output = trialstruct(θ,zero(T), dt)
             input[:,1:nsteps,i] .= _input
             output[:,1:nsteps,i] .= _output
             _go_cue_onset = 0
@@ -857,7 +881,7 @@ function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt
         end
         input .+= σ.*randn(rng, size(input)...)
         return input,output,output_mask
-    end
+    end,NamedTuple(args), h)
 end
 
 function performance(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3};Δ::Int64=0, require_fixation=true) where T <: Real
@@ -872,9 +896,9 @@ function performance(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, 
     # loop over trials
     for (output_t, output_true_t) in zip(eachslice(output,dims=3), eachslice(output_true,dims=3))
         # figure out the go-cue
-        idxc = findfirst(output_t .> T(0.05))
+        idxc = findfirst(output_true_t .> T(0.05))
         idx1 = idxc.I[2]
-        idx2 = findfirst(dropdims(sum(output_t,dims=1),dims=1) .== zero(T))
+        idx2 = findfirst(dropdims(sum(output_true_t,dims=1),dims=1) .== zero(T))
         if idx2 === nothing
             idx2 = size(output_t,2)
         else
@@ -897,4 +921,16 @@ function performance(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, 
     end
     pp /= size(output,3)
     pp
+end
+
+get_name(::Type{RandomSequenceTrial{T}}) where T <: Real = :RandomSequenceTrial
+
+function signature(trial::RandomSequenceTrial{T},h=zero(UInt32)) where T <: Real
+    for q in [trial.input_duration, trial.delay_duration, trial.go_cue_duration, trial.output_duration, trial.min_seq_length, trial.max_seq_length, ]
+        for ii in q
+            h = crc32c(string(ii), h)
+        end
+    end
+    h = signature(trial.apref,h)
+    h
 end
