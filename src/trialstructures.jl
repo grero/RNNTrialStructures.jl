@@ -784,7 +784,7 @@ function get_trialid(trialstruct::RandomSequenceTrial{T},n::Int64,rng::AbstractR
     T(2*π)*rand(rng, T, n) .- T(π)
 end
 
-function (trial::RandomSequenceTrial{T})(θ::Vector{T},go_cue_onset::T, stim_onset, dt::T;reverse_output=false) where T <: Real
+function (trial::RandomSequenceTrial{T})(θ::Vector{T},go_cue_onset::T, dt::T;reverse_output=false) where T <: Real
     n = length(θ)
     nq = length(trial.apref.μ)
     # 
@@ -856,7 +856,7 @@ function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt
             θ = get_trialid(trialstruct, rng)
             nsteps = get_nsteps(trialstruct, length(θ), dt)
             go_cue_onset = get_go_cue_onset(trialstruct, length(θ), dt, 0)
-            _input,_output = trialstruct(θ,zero(T), zero(T), dt)
+            _input,_output = trialstruct(θ,zero(T), dt)
             input[:,1:nsteps,i] .= _input
             output[:,1:nsteps,i] .= _output
             _go_cue_onset = 0
