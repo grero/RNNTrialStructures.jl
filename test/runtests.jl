@@ -74,11 +74,17 @@ end
         @test length(θ) == 6
         @test θ ≈ Float32[-2.3134663, 1.9634168, 0.58281016, 1.3592651, 0.077911615, -2.211473]
         trial_generator = RNNTrialStructures.generate_trials(trialstruct, 256, 20.0f0;σ=0.03f0,rng=rng)
+        @test isa(trial_generator, RNNTrialStructures.TrialIterator)
+        @test trial_generator.arghash == 0x2d02060c
         x,y,w = trial_generator()
         nsteps = RNNTrialStructures.get_nsteps(trialstruct,trialstruct.max_seq_length, 20.0f0)
         @test size(x,2) == size(y,2) == size(w,2) ==  nsteps
         @test size(x,3) == size(y,3) == size(w,3) == 256
         pp = RNNTrialStructures.performance(trialstruct, y, y)
         @test pp ≈ 1.0f0
+
+        @test RNNTrialStructures.get_name(trialstruct) == :RandomSequenceTrial
+        sig = RNNTrialStructures.signature(trialstruct)
+        @test sig == 0x5c25ebee
     end
 end
