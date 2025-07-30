@@ -845,13 +845,13 @@ function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt
     pushfirst!(args, (:trialstruct, trialstruct))
     nin = num_inputs(trialstruct)
     nout = num_outputs(trialstruct)
-    nsteps = get_nsteps(trialstruct, trialstruct.max_seq_length, dt)
     Random.seed!(rng, rseed)
+    max_nsteps = get_nsteps(trialstruct, trialstruct.max_seq_length, dt)
     TrialIterator(
     function trial_generator()
-        input = zeros(T, nin, nsteps, ntrials)
-        output = zeros(T, nout, nsteps, ntrials)
-        output_mask = zeros(T, nout, nsteps, ntrials) 
+        input = zeros(T, nin, max_nsteps, ntrials)
+        output = zeros(T, nout, max_nsteps, ntrials)
+        output_mask = zeros(T, nout, max_nsteps, ntrials) 
         for i in 1:ntrials
             θ = get_trialid(trialstruct, rng)
             nsteps = get_nsteps(trialstruct, length(θ), dt)
