@@ -793,7 +793,7 @@ function (trial::RandomSequenceTrial{T})(θ::Vector{T},go_cue_onset::T, dt::T;re
     go_cue_dur = round(Int64, trial.go_cue_duration/dt)
     output_dur = round(Int64,trial.output_duration/dt)
     # n delays for n inputs
-    nsteps = 2*n*input_dur + n*delay_dur
+    nsteps = n*(input_dur + delay_dur) + n*output_dur
     input = zeros(T,nq+1, nsteps)
     output = fill(T(0.05), nq, nsteps)
     for i in 1:n
