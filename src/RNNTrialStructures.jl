@@ -31,36 +31,27 @@ function Base.iterate(trial::TrialIterator)
     trial.data_provider(),0
 end
 
-function generate_trials(trialstruct::AbstractTrialStruct{T}, ntrials::Int64;randomize_go_cue=true, randomize_grace_period=false, go_cue_onset_min::T=zero(T), go_cue_onset_max::T=go_cue_onset_min,
+function generate_trials(trialstruct::MultipleAngleTrial{T}, ntrials::Int64;randomize_go_cue=true, randomize_grace_period=false, go_cue_onset_min::T=zero(T), go_cue_onset_max::T=go_cue_onset_min,
                                                       grace_period_min::T=zero(T), grace_period_max=grace_period_min,
                                                       post_cue_multiplier::T=T(2.0), pre_cue_multiplier::T=one(T),stim_onset_min::Vector{T}=zeros(T,trialstruct.nangles), stim_onset_max::Vector{T}=stim_onset_min,
                                                       stim_onset_step::Vector{T}=fill(trialstruct.dt, trialstruct.nangles), σ=zero(T), constraint_factor::T=T(0.0),rng=Random.default_rng(), rseed=1234) where T <: Real
 
-    Random.seed!(rng, rseed)
+    args = [(:ntrials, ntrials),(:randomize_go_cue, randomize_go_cue),(:randomize_grace_period, randomize_grace_period),(:go_cue_onset_min, go_cue_onset_min),
+            (:go_cue_onset_max, go_cue_onset_max),(:stim_onset_min, stim_onset_min),(:stim_onset_max, stim_onset_max),(:stim_onset_step, stim_onset_step),(:grace_period_min, grace_period_min), (:grace_period_max, grace_period_max),
+            (:post_cue_multiplier, post_cue_multiplier),(:pre_cue_multiplier,pre_cue_multiplier),(:σ, σ), (:constraint_factor, constraint_factor),(:rng, rng),(:rseed, rseed)]
+    defaults = Dict(:stim_onset_min => zeros(T, trialstruct.nangles),
+                    :stim_onset_max => zeros(T, trialstruct.nangles),
+                    :stim_onset_step => fill(trialstruct.dt, trialstruct.nangles))
     #generate a hash of the arguments
     h = signature(trialstruct)
-    h = crc32c(string(ntrials), h)
-    h = crc32c(string(randomize_go_cue), h)
-    h = crc32c(string(randomize_grace_period),h)
-    h = crc32c(string(go_cue_onset_min),h)
-    h = crc32c(string(go_cue_onset_max),h)
-    if any(stim_onset_min .!= zero(T))
-        h = crc32c(string(stim_onset_min),h)
+    for (k,v) in args
+        if !(k in keys(defaults)) || v != defaults[k]
+            h = crc32c(string(v),h)
+        end
     end
-    if any(stim_onset_max .!= zero(T))
-        h = crc32c(string(stim_onset_max),h)
-    end
-    if any(stim_onset_step .!= trialstruct.dt)
-        h = crc32c(string(stim_onset_step),h)
-    end
-    h = crc32c(string(grace_period_min),h)
-    h = crc32c(string(grace_period_max),h)
-    h = crc32c(string(post_cue_multiplier),h) 
-    h = crc32c(string(pre_cue_multiplier),h) 
-    h = crc32c(string(σ),h)
-    h = crc32c(string(constraint_factor),h)
-    h = crc32c(string(rng),h)
-    h = crc32c(string(rseed),h)
+    # add the first argument after
+    pushfirst!(args, (:trialstruct, trialstruct))
+    Random.seed!(rng, rseed)
     randomize_stim_2 = any(stim_onset_max .> stim_onset_min)
     TrialIterator(function data_provider()
         dt = trialstruct.dt
@@ -102,7 +93,7 @@ function generate_trials(trialstruct::AbstractTrialStruct{T}, ntrials::Int64;ran
          end
         input .+= σ.*randn(rng, size(input)...)
         input,output, output_mask
-    end,h)
+    end,NamedTuple(args), h)
 end
 
 end # module RNNTrialStructures
