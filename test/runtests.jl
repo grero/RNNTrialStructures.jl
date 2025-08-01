@@ -79,7 +79,7 @@ end
         @test θ ≈ Float32[-2.3134663, 1.9634168, 0.58281016, 1.3592651, 0.077911615, -2.211473]
         trial_generator = RNNTrialStructures.generate_trials(trialstruct, 256, 20.0f0;σ=0.03f0,rng=rng)
         @test isa(trial_generator, RNNTrialStructures.TrialIterator)
-        @test trial_generator.arghash == 0x683b0af3 
+        @test trial_generator.arghash == 0x444662f0
         @test trial_generator.args.trialstruct == trialstruct
         @test trial_generator.args.ntrials == 256
         @test trial_generator.args.dt == 20.0f0 
@@ -94,6 +94,6 @@ end
 
         @test RNNTrialStructures.get_name(trialstruct) == :RandomSequenceTrial
         sig = RNNTrialStructures.signature(trialstruct)
-        @test sig == 0x5c25ebee
+        @test sig == 0xd423d481
     end
 end
