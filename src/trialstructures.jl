@@ -767,7 +767,12 @@ struct RandomSequenceTrial{T<:Real} <: AbstractTrialStruct{T}
     output_duration::T
     min_seq_length::Int64
     max_seq_length::Int64
+    num_angles::Int64
     apref::AngularPreference{T}
+end
+
+function RandomSequenceTrial(input_duration, delay_duration, go_cue_duration, output_duration, min_seq_length, max_seq_length, apref)
+    RandomSequenceTrial(input_duration, delay_duration, go_cue_duration, output_duration, min_seq_length, max_seq_length, 0, apref)
 end
 
 RandomSequenceTrial(apref::AngularPreference{T}) where T <: Real = RandomSequenceTrial(T(20.0), zero(T), T(20.0), T(20.0), 2,9, apref)
