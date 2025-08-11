@@ -963,3 +963,10 @@ function signature(trial::RandomSequenceTrial{T},h=zero(UInt32)) where T <: Real
     h = signature(trial.apref,h)
     h
 end
+
+function readout(trialstruct::RandomSequenceTrial{T}, x::Vector{T}) where T <: Real
+    μ = trialstruct.apref.μ
+    a = sum(x.*cos.(μ))
+    b = sum(x.*sin.(μ))
+    atan(b,a)
+end
