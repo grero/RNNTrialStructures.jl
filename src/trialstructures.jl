@@ -567,7 +567,13 @@ num_stimuli(trial::MultipleAngleTrial) = trial.nangles
 
 get_trialid(trial::MultipleAngleTrial{T};rng=Random.default_rng()) where T <: Real = T(2π).*rand(rng, T,trial.nangles)
 
-function get_trialid(trial::MultipleAngleTrial{T}, constraint_factor::T;rng=Random.default_rng()) where T <: Real
+function get_trialid(trial::MultipleAngleTrial{T}, num_angles::Integer;rng=Random.default_rng()) where T <: Real
+    θs = range(-T(π), stop=T(π), length=num_angles+1)
+    θ = rand(rng, θs, trial.nangles)
+    θ
+end
+
+function get_trialid(trial::MultipleAngleTrial{T}, constraint_factor::T;rng=Random.default_rng()) where T <: AbstractFloat 
     if constraint_factor == zero(T)
         return get_trialid(trial;rng=rng)
     end
