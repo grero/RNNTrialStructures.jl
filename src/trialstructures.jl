@@ -797,6 +797,9 @@ end
 Generate `n` angles randomly sampled between -π and π
 """
 function get_trialid(trialstruct::RandomSequenceTrial{T},n::Int64,rng::AbstractRNG=Random.default_rng()) where T <: Real
+    if trialstruct.num_angles > 0
+        return get_trialid(trialstruct, n, trialstruct.num_angles, rng)
+    end
     T(2*π)*rand(rng, T, n) .- T(π)
 end
 
