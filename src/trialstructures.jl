@@ -955,7 +955,7 @@ end
 get_name(::Type{RandomSequenceTrial{T}}) where T <: Real = :RandomSequenceTrial
 
 function signature(trial::RandomSequenceTrial{T},h=zero(UInt32)) where T <: Real
-    for q in [trial.input_duration, trial.delay_duration, trial.go_cue_duration, trial.output_duration, trial.min_seq_length, trial.max_seq_length, ]
+    for q in [trial.input_duration, trial.delay_duration, trial.go_cue_duration, trial.output_duration, trial.min_seq_length, trial.max_seq_length, trial.num_angles]
         for ii in q
             h = crc32c(string(ii), h)
         end
