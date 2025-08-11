@@ -902,17 +902,16 @@ function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt
     end,NamedTuple(args), h)
 end
 
-function performance(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3};Δ::Int64=0, require_fixation=true) where T <: Real
+function compute_error(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3}) where T <: Real
     angular_pref = trial.apref
     θ = angular_pref.μ
     nθ = length(θ)
     sθ = sin.(θ)
     cθ = cos.(θ)
     Δ = Float32(2π)/length(angular_pref.μ)
-
-    pp = zero(T)
+    err = fill(T(NaN), trial.max_seq_length+1,size(output_true,3))
     # loop over trials
-    for (output_t, output_true_t) in zip(eachslice(output,dims=3), eachslice(output_true,dims=3))
+    for (i,(output_t, output_true_t)) in enumerate(zip(eachslice(output,dims=3), eachslice(output_true,dims=3)))
         # figure out the go-cue
         idxc = findfirst(output_true_t .> T(0.05))
         idx1 = idxc.I[2]
@@ -928,17 +927,29 @@ function performance(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, 
         rr_true = output_true_t[:,idx1:idx2]
         sumrr_true = sum(rr_true,dims=1)
         θrr_true = atan.(sum(rr_true.*sθ,dims=1)./sumrr_true, sum(rr_true.*cθ,dims=1)./sumrr_true)
-        ppq = mean(cos.(θrr .- θrr_true) .> cos(Δ))
-
-        if require_fixation
-            rrt = maximum(output_t[:,1:idx1-1])
-            pp +=(rrt < 0.2f0).*ppq
-        else
-            pp += ppq
-        end
+        _err = dropdims(sqrt.(sin.(θrr .- θrr_true).^2),dims=1)
+        err[2:idx2-idx1+2,i] .= _err
+        # fixation error
+        err[1,i] = maximum(output_t[:,1:idx1-1])
     end
-    pp /= size(output,3)
-    pp
+    return err
+end
+
+function performance(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3};require_fixation=true) where T <: Real
+    angular_pref = trial.apref
+    Δ = Float32(2π)/length(angular_pref.μ)
+    sΔ = abs(sin(Δ))
+    err = compute_error(trial, output, output_true)
+    ppq = zero(T)
+    for _err in eachcol(err)
+        idx = isfinite.(_err[2:end])
+        _ppq = mean(_err[2:end][idx] .< sΔ)
+        if require_fixation
+            _ppq *= (_err[1] .< T(0.2))
+        end
+        ppq += _ppq
+    end
+    ppq /= size(err,2)
 end
 
 get_name(::Type{RandomSequenceTrial{T}}) where T <: Real = :RandomSequenceTrial
