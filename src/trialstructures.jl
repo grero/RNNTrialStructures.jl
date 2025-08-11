@@ -863,7 +863,8 @@ function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt
                                                                                     pre_cue_multiplier=one(T),
                                                                                     post_cue_multiplier=one(T),
                                                                                     σ=zero(T),
-                                                                                    rng::AbstractRNG=Random.default_rng()) where T <: Real
+                                                                                    rng::AbstractRNG=Random.default_rng()
+                                                                                    ) where T <: Real
     # create a hash of the arguments
     # TODO: This is quite clunky
     args = [(:ntrials, ntrials),(:dt, dt), (:rseed, rseed), (:pre_cue_multiplier, pre_cue_multiplier),(:post_cue_multiplier, post_cue_multiplier), (:σ, σ), (:rng, rng)]
