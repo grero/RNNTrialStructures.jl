@@ -868,9 +868,12 @@ function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt
     # create a hash of the arguments
     # TODO: This is quite clunky
     args = [(:ntrials, ntrials),(:dt, dt), (:rseed, rseed), (:pre_cue_multiplier, pre_cue_multiplier),(:post_cue_multiplier, post_cue_multiplier), (:σ, σ), (:rng, rng)]
+    defaults = Dict{Symbol,Any}()
     h = signature(trialstruct)
     for (k,v) in args
-        h = CRC32c.crc32c(string(v), h)
+        if !(k in keys(defaults)) || v != defaults[k]
+            h = CRC32c.crc32c(string(v), h)
+        end
     end
     pushfirst!(args, (:trialstruct, trialstruct))
     nin = num_inputs(trialstruct)
