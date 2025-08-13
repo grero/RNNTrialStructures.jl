@@ -49,6 +49,14 @@ function (apref::AngularPreference{T})(θ::T) where T <: Real
     apref.a.*exp.(κ*cos.(θ .- apref.μ))./z
 end
 
+function (apref::AngularPreference{T})(θ::AbstractVector{T}) where T <: Real
+    X = zeros(T, length(apref.μ), length(θ))
+    for (i,_θ) in enumerate(θ)
+        X[:,i] .= apref(_θ)
+    end
+    X
+end
+
 struct PlaceCells{T<:Real}
     μ::Vector{Tuple{T, T}}
     σ::Vector{T}
