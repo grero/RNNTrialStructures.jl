@@ -4,6 +4,7 @@ using StatsBase
 using CRC32c
 
 include("trialstructures.jl")
+include("navigation.jl")
 
 # TODO: This probably be made into a macro to make things more much simple
 mutable struct TrialIterator
