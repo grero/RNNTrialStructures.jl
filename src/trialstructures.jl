@@ -49,6 +49,14 @@ function (apref::AngularPreference{T})(θ::T) where T <: Real
     apref.a.*exp.(κ*cos.(θ .- apref.μ))./z
 end
 
+function (apref::AngularPreference{T})(θ::AbstractVector{T}) where T <: Real
+    X = zeros(T, length(apref.μ), length(θ))
+    for (i,_θ) in enumerate(θ)
+        X[:,i] .= apref(_θ)
+    end
+    X
+end
+
 struct PlaceCells{T<:Real}
     μ::Vector{Tuple{T, T}}
     σ::Vector{T}
@@ -567,7 +575,13 @@ num_stimuli(trial::MultipleAngleTrial) = trial.nangles
 
 get_trialid(trial::MultipleAngleTrial{T};rng=Random.default_rng()) where T <: Real = T(2π).*rand(rng, T,trial.nangles)
 
-function get_trialid(trial::MultipleAngleTrial{T}, constraint_factor::T;rng=Random.default_rng()) where T <: Real
+function get_trialid(trial::MultipleAngleTrial{T}, num_angles::Integer;rng=Random.default_rng()) where T <: Real
+    θs = range(-T(π), stop=T(π), length=num_angles+1)
+    θ = rand(rng, θs, trial.nangles)
+    θ
+end
+
+function get_trialid(trial::MultipleAngleTrial{T}, constraint_factor::T;rng=Random.default_rng()) where T <: AbstractFloat 
     if constraint_factor == zero(T)
         return get_trialid(trial;rng=rng)
     end
@@ -791,6 +805,9 @@ end
 Generate `n` angles randomly sampled between -π and π
 """
 function get_trialid(trialstruct::RandomSequenceTrial{T},n::Int64,rng::AbstractRNG=Random.default_rng()) where T <: Real
+    if trialstruct.num_angles > 0
+        return get_trialid(trialstruct, n, trialstruct.num_angles, rng)
+    end
     T(2*π)*rand(rng, T, n) .- T(π)
 end
 
@@ -854,13 +871,17 @@ function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt
                                                                                     pre_cue_multiplier=one(T),
                                                                                     post_cue_multiplier=one(T),
                                                                                     σ=zero(T),
-                                                                                    rng::AbstractRNG=Random.default_rng()) where T <: Real
+                                                                                    rng::AbstractRNG=Random.default_rng()
+                                                                                    ) where T <: Real
     # create a hash of the arguments
     # TODO: This is quite clunky
     args = [(:ntrials, ntrials),(:dt, dt), (:rseed, rseed), (:pre_cue_multiplier, pre_cue_multiplier),(:post_cue_multiplier, post_cue_multiplier), (:σ, σ), (:rng, rng)]
+    defaults = Dict{Symbol,Any}()
     h = signature(trialstruct)
     for (k,v) in args
-        h = CRC32c.crc32c(string(v), h)
+        if !(k in keys(defaults)) || v != defaults[k]
+            h = CRC32c.crc32c(string(v), h)
+        end
     end
     pushfirst!(args, (:trialstruct, trialstruct))
     nin = num_inputs(trialstruct)
@@ -889,17 +910,16 @@ function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt
     end,NamedTuple(args), h)
 end
 
-function performance(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3};Δ::Int64=0, require_fixation=true) where T <: Real
+function compute_error(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3}) where T <: Real
     angular_pref = trial.apref
     θ = angular_pref.μ
     nθ = length(θ)
     sθ = sin.(θ)
     cθ = cos.(θ)
     Δ = Float32(2π)/length(angular_pref.μ)
-
-    pp = zero(T)
+    err = fill(T(NaN), trial.max_seq_length+1,size(output_true,3))
     # loop over trials
-    for (output_t, output_true_t) in zip(eachslice(output,dims=3), eachslice(output_true,dims=3))
+    for (i,(output_t, output_true_t)) in enumerate(zip(eachslice(output,dims=3), eachslice(output_true,dims=3)))
         # figure out the go-cue
         idxc = findfirst(output_true_t .> T(0.05))
         idx1 = idxc.I[2]
@@ -915,27 +935,46 @@ function performance(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, 
         rr_true = output_true_t[:,idx1:idx2]
         sumrr_true = sum(rr_true,dims=1)
         θrr_true = atan.(sum(rr_true.*sθ,dims=1)./sumrr_true, sum(rr_true.*cθ,dims=1)./sumrr_true)
-        ppq = mean(cos.(θrr .- θrr_true) .> cos(Δ))
-
-        if require_fixation
-            rrt = maximum(output_t[:,1:idx1-1])
-            pp +=(rrt < 0.2f0).*ppq
-        else
-            pp += ppq
-        end
+        _err = dropdims(sqrt.(sin.(θrr .- θrr_true).^2),dims=1)
+        err[2:idx2-idx1+2,i] .= _err
+        # fixation error
+        err[1,i] = maximum(output_t[:,1:idx1-1])
     end
-    pp /= size(output,3)
-    pp
+    return err
+end
+
+function performance(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, output_true::AbstractArray{T,3};require_fixation=true) where T <: Real
+    angular_pref = trial.apref
+    Δ = Float32(2π)/length(angular_pref.μ)
+    sΔ = abs(sin(Δ))
+    err = compute_error(trial, output, output_true)
+    ppq = zero(T)
+    for _err in eachcol(err)
+        idx = isfinite.(_err[2:end])
+        _ppq = mean(_err[2:end][idx] .< sΔ)
+        if require_fixation
+            _ppq *= (_err[1] .< T(0.2))
+        end
+        ppq += _ppq
+    end
+    ppq /= size(err,2)
 end
 
 get_name(::Type{RandomSequenceTrial{T}}) where T <: Real = :RandomSequenceTrial
 
 function signature(trial::RandomSequenceTrial{T},h=zero(UInt32)) where T <: Real
-    for q in [trial.input_duration, trial.delay_duration, trial.go_cue_duration, trial.output_duration, trial.min_seq_length, trial.max_seq_length, ]
+    for q in [trial.input_duration, trial.delay_duration, trial.go_cue_duration, trial.output_duration, trial.min_seq_length, trial.max_seq_length, trial.num_angles]
         for ii in q
             h = crc32c(string(ii), h)
         end
     end
     h = signature(trial.apref,h)
     h
+end
+
+function readout(trialstruct::RandomSequenceTrial{T}, x::Vector{T}) where T <: Real
+    μ = trialstruct.apref.μ
+    a = sum(x.*cos.(μ))
+    b = sum(x.*sin.(μ))
+    atan(b,a)
 end

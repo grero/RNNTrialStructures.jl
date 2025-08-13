@@ -34,14 +34,15 @@ end
 function generate_trials(trialstruct::MultipleAngleTrial{T}, ntrials::Int64;randomize_go_cue=true, randomize_grace_period=false, go_cue_onset_min::T=zero(T), go_cue_onset_max::T=go_cue_onset_min,
                                                       grace_period_min::T=zero(T), grace_period_max=grace_period_min,
                                                       post_cue_multiplier::T=T(2.0), pre_cue_multiplier::T=one(T),stim_onset_min::Vector{T}=zeros(T,trialstruct.nangles), stim_onset_max::Vector{T}=stim_onset_min,
-                                                      stim_onset_step::Vector{T}=fill(trialstruct.dt, trialstruct.nangles), σ=zero(T), constraint_factor::T=T(0.0),rng=Random.default_rng(), rseed=1234) where T <: Real
+                                                      stim_onset_step::Vector{T}=fill(trialstruct.dt, trialstruct.nangles), σ=zero(T), constraint_factor::T=T(0.0),fixed_n_angles::Int64=0, rng=Random.default_rng(), rseed=1234) where T <: Real
 
     args = [(:ntrials, ntrials),(:randomize_go_cue, randomize_go_cue),(:randomize_grace_period, randomize_grace_period),(:go_cue_onset_min, go_cue_onset_min),
             (:go_cue_onset_max, go_cue_onset_max),(:stim_onset_min, stim_onset_min),(:stim_onset_max, stim_onset_max),(:stim_onset_step, stim_onset_step),(:grace_period_min, grace_period_min), (:grace_period_max, grace_period_max),
-            (:post_cue_multiplier, post_cue_multiplier),(:pre_cue_multiplier,pre_cue_multiplier),(:σ, σ), (:constraint_factor, constraint_factor),(:rng, rng),(:rseed, rseed)]
+            (:post_cue_multiplier, post_cue_multiplier),(:pre_cue_multiplier,pre_cue_multiplier),(:σ, σ), (:constraint_factor, constraint_factor),(:fixed_n_angles, fixed_n_angles), (:rng, rng),(:rseed, rseed)]
     defaults = Dict(:stim_onset_min => zeros(T, trialstruct.nangles),
                     :stim_onset_max => zeros(T, trialstruct.nangles),
-                    :stim_onset_step => fill(trialstruct.dt, trialstruct.nangles))
+                    :stim_onset_step => fill(trialstruct.dt, trialstruct.nangles),
+                    :fixed_n_angles => 0)
     #generate a hash of the arguments
     h = signature(trialstruct)
     for (k,v) in args
@@ -53,6 +54,12 @@ function generate_trials(trialstruct::MultipleAngleTrial{T}, ntrials::Int64;rand
     pushfirst!(args, (:trialstruct, trialstruct))
     Random.seed!(rng, rseed)
     randomize_stim_2 = any(stim_onset_max .> stim_onset_min)
+    # this is a bit hackey; I should probably just use multiple dispatch here
+    if fixed_n_angles > 0
+        _constraint_factor = fixed_n_angles
+    else
+        _constraint_factor = constraint_factor
+    end
     TrialIterator(function data_provider()
         dt = trialstruct.dt
         ninput = num_inputs(trialstruct)
@@ -67,7 +74,7 @@ function generate_trials(trialstruct::MultipleAngleTrial{T}, ntrials::Int64;rand
         go_cue_onset = trialstruct.response_onset[1]-1
         stim_onset_Δ = fill(0, trialstruct.nangles)
         for i in 1:ntrials
-            trialid = get_trialid(trialstruct,constraint_factor;rng=rng)
+            trialid = get_trialid(trialstruct,_constraint_factor;rng=rng)
             if randomize_go_cue
                 _go_cue_onset = rand(round(Int64, go_cue_onset_min/dt):round(Int64,go_cue_onset_max/dt))
             else
