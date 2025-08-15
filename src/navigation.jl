@@ -107,8 +107,15 @@ end
 struct NavigationTrial{T<:Real} <: AbstractTrialStruct{T}
     min_num_steps::Int64
     max_num_steps::Int64
+    inputs::Vector{Symbol}
+    outputs::Vector{Symbol}
     arena::Arena{T}
     angular_pref::AngularPreference{T}
+end
+
+# fallback
+function NavigationTrial{T}(min_num_steps::Int64, max_num_steps::Int64, arena::Arena{T}, apref::AngularPreference{T})  where T <: Real
+    NavigationTrial(min_num_steps, max_num_steps, [:view],[:position],arena, apref)
 end
 
 get_name(::Type{NavigationTrial{T}}) where T <: Real = :NavigationTrial
@@ -229,7 +236,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     position, head_direction, viewf
 end
 
-num_inputs(trialstruct::NavigationTrial) = length(trialstruct.angular_pref.μ)
+num_inputs(trialstruct::NavigationTrial) = length(trialstruct.inputs)*length(trialstruct.angular_pref.μ)
 num_outputs(trialstruct::NavigationTrial) = 2  # for position
 
 function compute_error(trialstruct::NavigationTrial{T}, output::Array{T,3}, output_true::Array{T,3}) where T <: Real
@@ -268,8 +275,8 @@ function performance(trialstruct::NavigationTrial{T}, output::Array{T,3}, output
     ppq./nq 
 end
 
-function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Random.default_rng(), rseed=1, inputs=(:view,), outputs=(:position,),Δθstep::T=T(π/4), fov::T=T(π/2)) where T <: Real
-    args = [(:ntrials, ntrials),(:dt, dt), (:rng, rng), (:rseed, rseed), (:inputs, inputs),(:outputs, outputs),(:Δθstep, Δθstep),
+function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Random.default_rng(), rseed=1, Δθstep::T=T(π/4), fov::T=T(π/2)) where T <: Real
+    args = [(:ntrials, ntrials),(:dt, dt), (:rng, rng), (:rseed, rseed), (:Δθstep, Δθstep),
             (:fov, fov)]
     defaults = Dict{Symbol,Any}(:Δθstep=>T(π/4), :fov=>T(π/2))
     h = signature(trial)
@@ -280,8 +287,8 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
     end
     pushfirst!(args, (:trialstruct, trial))
     Random.seed!(rng, rseed)
-    ninputs = length(inputs)*length(trial.angular_pref.μ)
-    noutputs = length(outputs)*2 # for position
+    ninputs = length(trial.inputs)*length(trial.angular_pref.μ)
+    noutputs = length(trial.outputs)*2 # for position
     max_nsteps = trial.max_num_steps
     TrialIterator(
         function data_provider()
@@ -290,10 +297,16 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
             output_mask = zeros(T, noutputs, max_nsteps, ntrials)
             for i in 1:ntrials
                 position, head_direction,viewfield = trial(;rng=rng,Δθstep=Δθstep,fov=fov)
-                if :view in inputs
-                    input[1:size(viewfield,1), 1:size(viewfield,2),i]  .= viewfield
+                offset = 0
+                if :view in trial.inputs
+                    input[offset+1:offset+size(viewfield,1), 1:size(viewfield,2),i]  .= viewfield
+                    offset += size(viewfield,1)
                 end
-                if :position in outputs
+                if :head_direction in trial.inputs
+                    input[offset+1:offset+size(head_direction,1), 1:size(head_direction,2),i]  .= head_direction
+                    offset += size(head_direction,1)
+                end
+                if :position in trial.outputs
                     output[1:size(position,1), 1:size(position,2),i] .= position
                 end
                 output_mask[:,1:size(position,2),i] .= one(T)
