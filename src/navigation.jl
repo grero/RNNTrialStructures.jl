@@ -137,10 +137,10 @@ function get_circle_intersection(origin::Vector{T}, r::T, point::Vector{T}, θ::
     point + t*[a,b]
 end
 
- function get_view(pos::Vector{T}, θ::T, arena::Arena{T}) where T <: Real
+ function get_view(pos::Vector{T}, θ::T, arena::Arena{T};fov::T=T(π/2)) where T <: Real
     pos_center = get_center(arena)
     r = sqrt(sum(pos_center.^2))
-    θr = T.([θ-π/4, θ+π/4])
+    θr = T.([θ-fov/2, θ+fov/2])
     xq = zeros(T,2,2)
     xq[1,:] = get_circle_intersection(pos_center, r, pos, θr[1])
     xq[2,:] = get_circle_intersection(pos_center, r, pos, θr[2])
@@ -199,7 +199,7 @@ function get_view_old(pos::Vector{T}, θ::T,arena::Arena{T}) where T <: Real
     end
 end
 
-function (trial::NavigationTrial{T})(;rng=Random.default_rng()) where T <: Real
+function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/4), kwargs...) where T <: Real
     # random initiarange(-T(π), stop=T(π), step=π/4)li
     θf = range(zero(T), stop=T(2π), step=T(π/4))
     nsteps = rand(rng, trial.min_num_steps:trial.max_num_steps)
@@ -211,17 +211,17 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng()) where T <: Real
 
     θ = rand(rng, θf)
     head_direction[:,1] = trial.angular_pref(θ)
-    θq = get_view(position[:,1],θ, trial.arena)
+    θq = get_view(position[:,1],θ, trial.arena;kwargs...)
     viewf[:,1] .= mean(trial.angular_pref(range(θq[1], stop=θq[2],length=10)),dims=2)
 
-    Δθ = T.([-π/4, 0.0, π/4])
+    Δθ = T.([-Δθstep, 0.0, Δθstep])
     for k in 2:nsteps
         i,j = get_coordinate(i,j,trial.arena;rng=rng)
         position[:,k] = get_position(i,j,trial.arena)
         θ += rand(rng, Δθ)
         head_direction[:,k] = trial.angular_pref(θ)
         # get view angles
-        θq = get_view(position[:,k],θ, trial.arena)
+        θq = get_view(position[:,k],θ, trial.arena;kwargs...)
         viewf[:,k] .= mean(trial.angular_pref(range(θq[1], stop=θq[2],length=10)),dims=2)
     end
     position./=[trial.arena.ncols*trial.arena.colsize, trial.arena.nrows*trial.arena.rowsize]
@@ -268,9 +268,10 @@ function performance(trialstruct::NavigationTrial{T}, output::Array{T,3}, output
     ppq./nq 
 end
 
-function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Random.default_rng(), rseed=1, inputs=(:view,), outputs=(:position,)) where T <: Real
-    args = [(:ntrials, ntrials),(:dt, dt), (:rng, rng), (:rseed, rseed), (:inputs, inputs),(:outputs, outputs)]
-    defaults = Dict{Symbol,Any}()
+function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Random.default_rng(), rseed=1, inputs=(:view,), outputs=(:position,),Δθstep::T=T(π/4), fov::T=T(π/2)) where T <: Real
+    args = [(:ntrials, ntrials),(:dt, dt), (:rng, rng), (:rseed, rseed), (:inputs, inputs),(:outputs, outputs),(:Δθstep, Δθstep),
+            (:fov, fov)]
+    defaults = Dict{Symbol,Any}(:Δθstep=>T(π/4), :fov=>T(π/2))
     h = signature(trial)
     for (k,v) in args
         if !(k in keys(defaults)) || v != defaults[k]
@@ -288,7 +289,7 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
             output = zeros(T, noutputs, max_nsteps, ntrials)
             output_mask = zeros(T, noutputs, max_nsteps, ntrials)
             for i in 1:ntrials
-                position, head_direction,viewfield = trial(;rng=rng)
+                position, head_direction,viewfield = trial(;rng=rng,Δθstep=Δθstep,fov=fov)
                 if :view in inputs
                     input[1:size(viewfield,1), 1:size(viewfield,2),i]  .= viewfield
                 end
