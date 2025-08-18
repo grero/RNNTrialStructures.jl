@@ -121,7 +121,7 @@ end
 get_name(::Type{NavigationTrial{T}}) where T <: Real = :NavigationTrial
 
 function signature(trial::NavigationTrial{T},h=zero(UInt32)) where T <: Real
-    for q in [trial.min_num_steps, trial.max_num_steps]
+    for q in [trial.min_num_steps, trial.max_num_steps, trial.inputs, trial.outputs]
         for ii in q
             h = crc32c(string(ii), h)
         end
