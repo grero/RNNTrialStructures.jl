@@ -16,10 +16,15 @@ function signature(arena::Arena{T},h=zero(UInt32)) where T <: Real
     h
 end
 
-function get_center(arena::Arena{T}) where T <: Real
+function get_center_position(arena::Arena{T}) where T <: Real
     i = div(arena.ncols,2)+1
     j = div(arena.nrows,2)+1
     get_position(i,j,arena)
+end
+
+function get_center(arena::Arena{T}) where T <: Real
+    w,h = extent(arena)
+    w/2,h/2
 end
 
 extent(arena::Arena)  = (arena.ncols*arena.colsize, arena.nrows*arena.rowsize)
@@ -44,9 +49,42 @@ function check_step(i::Int64,j::Int64, ncols::Int64, nrows::Int64)
     possible_steps
 end
 
+"""
+    get_coordinate(i::Int64, j::Int64,arena::Arena{T};Δθ=π/4,rng=Random.default_rng()) where T <: Real
+
+Generate a new coordinate in `arena` by choosing a random step subject to the arena constraints.
+"""
 function get_coordinate(i::Int64, j::Int64,arena::Arena{T};Δθ=π/4,rng=Random.default_rng()) where T <: Real
     possible_steps = check_step(i,j,arena.ncols,arena.nrows)
     Δ = rand(rng, possible_steps)
+    (i,j) = (i+Δ[1], j+Δ[2])
+    (i,j)
+end
+
+function get_coordinate(i::Int64, j::Int64,arena::Arena{T},θhd::T;Δθ::T=T(π/4),rng=Random.default_rng(),p_hd=T(0.5)) where T <: Real
+    possible_steps = check_step(i,j,arena.ncols,arena.nrows)
+    nsteps = length(possible_steps)
+    #figure out the step most aligned with the current head direction
+    dx = [cos(θhd),sin(θhd)]
+    m = zeros(T, nsteps) 
+    for (ii,ps) in enumerate(possible_steps)
+        m[ii] = dx[1]*ps[1] + dx[2]*ps[2]
+    end
+    kk = findall(m.==maximum(m))
+    pp = p_hd
+    pq = T(1.0/(nsteps-length(kk)))
+    jj = 0
+    if rand(rng) < pp
+        jj = rand(rng,kk)
+    else
+        for (k,ii) in enumerate(setdiff(1:nsteps, kk))
+            if rand(rng) < k*pq 
+                jj = ii
+                break
+            end
+        end
+    end
+    Δ = possible_steps[jj]
     (i,j) = (i+Δ[1], j+Δ[2])
     (i,j)
 end
@@ -66,6 +104,23 @@ function get_position(i::Int64, j::Int64, arena::Arena{T}) where T <: Real
     wc = arena.colsize/2
     wr = arena.rowsize/2
     [(i-1)*arena.colsize + wc, (j-1)*arena.rowsize+wr]
+end
+
+function get_head_direction(Δθ::T;rng=Random.default_rng()) where T <: Real
+    rand(rng, [-Δθ, zero(T), Δθ])
+end
+
+function get_head_direction(Δθ::T,θ::T;rng=Random.default_rng(),p_stay::T=T(0.5)) where T <: Real
+    pp = cumsum([(1 - p_stay)/2, p_stay, (1-p_stay)/2])
+    cc = [-Δθ, zero(T), Δθ]
+    ii = 2 # stop gap; if for some reason the below fails, default to staying
+    for jj in 1:length(pp)
+        if rand(rng) < pp[jj]
+            ii = jj
+            break
+        end
+    end
+    cc[ii]
 end
 
 struct ViewField{T<:Real}
@@ -145,7 +200,7 @@ function get_circle_intersection(origin::Vector{T}, r::T, point::Vector{T}, θ::
 end
 
  function get_view(pos::Vector{T}, θ::T, arena::Arena{T};fov::T=T(π/2)) where T <: Real
-    pos_center = get_center(arena)
+    pos_center = [get_center(arena)...,]
     r = sqrt(sum(pos_center.^2))
     θr = T.([θ-fov/2, θ+fov/2])
     xq = zeros(T,2,2)
@@ -206,7 +261,7 @@ function get_view_old(pos::Vector{T}, θ::T,arena::Arena{T}) where T <: Real
     end
 end
 
-function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/4), kwargs...) where T <: Real
+function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/4), p_stay=T(1/3), p_hd=T(1/4), kwargs...) where T <: Real
     # random initiarange(-T(π), stop=T(π), step=π/4)li
     θf = range(zero(T), stop=T(2π), step=T(π/4))
     nsteps = rand(rng, trial.min_num_steps:trial.max_num_steps)
@@ -223,9 +278,9 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
 
     Δθ = T.([-Δθstep, 0.0, Δθstep])
     for k in 2:nsteps
-        i,j = get_coordinate(i,j,trial.arena;rng=rng)
+        θ += get_head_direction(Δθstep,θ;rng=rng,p_stay=p_stay) 
+        i,j = get_coordinate(i,j,trial.arena,θ;rng=rng)
         position[:,k] = get_position(i,j,trial.arena)
-        θ += rand(rng, Δθ)
         head_direction[:,k] = trial.angular_pref(θ)
         # get view angles
         θq = get_view(position[:,k],θ, trial.arena;kwargs...)
@@ -275,10 +330,10 @@ function performance(trialstruct::NavigationTrial{T}, output::Array{T,3}, output
     ppq./nq 
 end
 
-function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Random.default_rng(), rseed=1, Δθstep::T=T(π/4), fov::T=T(π/2)) where T <: Real
+function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Random.default_rng(), rseed=1, Δθstep::T=T(π/4), fov::T=T(π/2),p_stay=T(1/3), p_hd=T(1/4)) where T <: Real
     args = [(:ntrials, ntrials),(:dt, dt), (:rng, rng), (:rseed, rseed), (:Δθstep, Δθstep),
-            (:fov, fov)]
-    defaults = Dict{Symbol,Any}(:Δθstep=>T(π/4), :fov=>T(π/2))
+            (:fov, fov),(:p_stay, p_stay),(:p_hd, p_hd)]
+    defaults = Dict{Symbol,Any}(:Δθstep=>T(π/4), :fov=>T(π/2),:p_stay=>T(1/3),:p_hd=>T(1/4))
     h = signature(trial)
     for (k,v) in args
         if !(k in keys(defaults)) || v != defaults[k]
