@@ -113,7 +113,7 @@ end
 function get_head_direction(Δθ::T,θ::T;rng=Random.default_rng(),p_stay::T=T(0.5)) where T <: Real
     pp = cumsum([(1 - p_stay)/2, p_stay, (1-p_stay)/2])
     cc = [-Δθ, zero(T), Δθ]
-    ii = 0
+    ii = 2 # stop gap; if for some reason the below fails, default to staying
     for jj in 1:length(pp)
         if rand(rng) < pp[jj]
             ii = jj
