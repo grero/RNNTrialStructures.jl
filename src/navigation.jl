@@ -61,7 +61,7 @@ function get_coordinate(i::Int64, j::Int64,arena::Arena{T};Δθ=π/4,rng=Random.
     (i,j)
 end
 
-function get_coordinate(i::Int64, j::Int64,arena::Arena{T},θhd::T;Δθ::T=T(π/4),rng=Random.default_rng()) where T <: Real
+function get_coordinate(i::Int64, j::Int64,arena::Arena{T},θhd::T;Δθ::T=T(π/4),rng=Random.default_rng(),p_hd=T(0.5)) where T <: Real
     possible_steps = check_step(i,j,arena.ncols,arena.nrows)
     nsteps = length(possible_steps)
     #figure out the step most aligned with the current head direction
@@ -71,10 +71,10 @@ function get_coordinate(i::Int64, j::Int64,arena::Arena{T},θhd::T;Δθ::T=T(π/
         m[ii] = dx[1]*ps[1] + dx[2]*ps[2]
     end
     kk = findall(m.==maximum(m))
-    pp = T(0.5)
+    pp = p_hd
     pq = T(1.0/(nsteps-length(kk)))
     jj = 0
-    if rand(rng) < pp # this is arbitrary; basically assign 50% probabilty of moving in the current head direction
+    if rand(rng) < pp
         jj = rand(rng,kk)
     else
         for (k,ii) in enumerate(setdiff(1:nsteps, kk))
