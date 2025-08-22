@@ -275,7 +275,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     for k in 2:nsteps
         i,j = get_coordinate(i,j,trial.arena;rng=rng)
         position[:,k] = get_position(i,j,trial.arena)
-        θ += rand(rng, Δθ)
+        θ += get_head_direction(Δθ;rng=rng) 
         head_direction[:,k] = trial.angular_pref(θ)
         # get view angles
         θq = get_view(position[:,k],θ, trial.arena;kwargs...)
