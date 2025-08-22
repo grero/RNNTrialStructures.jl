@@ -330,10 +330,10 @@ function performance(trialstruct::NavigationTrial{T}, output::Array{T,3}, output
     ppq./nq 
 end
 
-function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Random.default_rng(), rseed=1, Δθstep::T=T(π/4), fov::T=T(π/2)) where T <: Real
+function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Random.default_rng(), rseed=1, Δθstep::T=T(π/4), fov::T=T(π/2),p_stay=T(1/3), p_hd=T(1/4)) where T <: Real
     args = [(:ntrials, ntrials),(:dt, dt), (:rng, rng), (:rseed, rseed), (:Δθstep, Δθstep),
-            (:fov, fov)]
-    defaults = Dict{Symbol,Any}(:Δθstep=>T(π/4), :fov=>T(π/2))
+            (:fov, fov),(:p_stay, p_stay),(:p_hd, p_hd)]
+    defaults = Dict{Symbol,Any}(:Δθstep=>T(π/4), :fov=>T(π/2),:p_stay=>T(1/3),:p_hd=>T(1/4))
     h = signature(trial)
     for (k,v) in args
         if !(k in keys(defaults)) || v != defaults[k]
