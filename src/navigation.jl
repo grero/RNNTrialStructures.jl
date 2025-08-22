@@ -145,7 +145,7 @@ function get_circle_intersection(origin::Vector{T}, r::T, point::Vector{T}, θ::
 end
 
  function get_view(pos::Vector{T}, θ::T, arena::Arena{T};fov::T=T(π/2)) where T <: Real
-    pos_center = get_center(arena)
+    pos_center = [get_center(arena)...,]
     r = sqrt(sum(pos_center.^2))
     θr = T.([θ-fov/2, θ+fov/2])
     xq = zeros(T,2,2)
