@@ -16,10 +16,15 @@ function signature(arena::Arena{T},h=zero(UInt32)) where T <: Real
     h
 end
 
-function get_center(arena::Arena{T}) where T <: Real
+function get_center_position(arena::Arena{T}) where T <: Real
     i = div(arena.ncols,2)+1
     j = div(arena.nrows,2)+1
     get_position(i,j,arena)
+end
+
+function get_center(arena::Arena{T}) where T <: Real
+    w,h = extent(arena)
+    w/2,h/2
 end
 
 extent(arena::Arena)  = (arena.ncols*arena.colsize, arena.nrows*arena.rowsize)
