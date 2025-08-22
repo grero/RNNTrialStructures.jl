@@ -261,7 +261,7 @@ function get_view_old(pos::Vector{T}, θ::T,arena::Arena{T}) where T <: Real
     end
 end
 
-function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/4), kwargs...) where T <: Real
+function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/4), p_stay=T(1/3), p_hd=T(1/4), kwargs...) where T <: Real
     # random initiarange(-T(π), stop=T(π), step=π/4)li
     θf = range(zero(T), stop=T(2π), step=T(π/4))
     nsteps = rand(rng, trial.min_num_steps:trial.max_num_steps)
