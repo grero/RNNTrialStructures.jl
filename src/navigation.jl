@@ -68,6 +68,23 @@ function get_position(i::Int64, j::Int64, arena::Arena{T}) where T <: Real
     [(i-1)*arena.colsize + wc, (j-1)*arena.rowsize+wr]
 end
 
+function get_head_direction(Δθ::T;rng=Random.default_rng()) where T <: Real
+    rand(rng, [-Δθ, zero(T), Δθ])
+end
+
+function get_head_direction(Δθ::T,θ::T;rng=Random.default_rng(),p_stay::T=T(0.5)) where T <: Real
+    pp = cumsum([(1 - p_stay)/2, p_stay, (1-p_stay)/2])
+    cc = [-Δθ, zero(T), Δθ]
+    ii = 0
+    for jj in 1:length(pp)
+        if rand(rng) < pp[jj]
+            ii = jj
+            break
+        end
+    end
+    cc[ii]
+end
+
 struct ViewField{T<:Real}
 
 end
