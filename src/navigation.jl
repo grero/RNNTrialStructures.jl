@@ -270,16 +270,29 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     position[:,1] = get_position(i,j,trial.arena)
     viewf = zeros(T, length(trial.angular_pref.μ),nsteps)
     head_direction = zeros(T, length(trial.angular_pref.μ), nsteps)
+    movement = zeros(T,4,nsteps)  # up,down,left,right
 
     θ = rand(rng, θf)
     head_direction[:,1] = trial.angular_pref(θ)
     θq = get_view(position[:,1],θ, trial.arena;kwargs...)
     viewf[:,1] .= mean(trial.angular_pref(range(θq[1], stop=θq[2],length=10)),dims=2)
 
-    Δθ = T.([-Δθstep, 0.0, Δθstep])
+    Δθ = T.([-Δθstep, zero(T), Δθstep])
     for k in 2:nsteps
         θ += get_head_direction(Δθstep,θ;rng=rng,p_stay=p_stay) 
-        i,j = get_coordinate(i,j,trial.arena,θ;rng=rng)
+        i1,j1 = get_coordinate(i,j,trial.arena,θ;rng=rng)
+        if i1 - i > 0
+            movement[1,k] = i1-i 
+        elseif i1 - i < 0
+            movement[2,k] = i-i1 
+        end
+        if j1 - j > 0
+            movement[4,k] = j1-j
+        elseif j1 - j < 0
+            movement[3,k] = j-j1
+        end
+        i = i1
+        j = j1
         position[:,k] = get_position(i,j,trial.arena)
         head_direction[:,k] = trial.angular_pref(θ)
         # get view angles
@@ -288,11 +301,41 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     end
     position./=[trial.arena.ncols*trial.arena.colsize, trial.arena.nrows*trial.arena.rowsize]
     position .= 0.8*position .+ 0.05 # rescale from 0.05 to 0.85 to avoid saturation
-    position, head_direction, viewf
+    position, head_direction, viewf, movement
 end
 
-num_inputs(trialstruct::NavigationTrial) = length(trialstruct.inputs)*length(trialstruct.angular_pref.μ)
-num_outputs(trialstruct::NavigationTrial) = 2  # for position
+function num_inputs(trialstruct::NavigationTrial)
+    n = 0
+    if :head_direction in trialstruct.inputs
+        n += length(trialstruct.angular_pref.μ)
+    end
+    if :view in trialstruct.inputs
+        n += length(trialstruct.angular_pref.μ)
+    end
+    if :movement in trialstruct.inputs
+        n += 4
+    end
+    if :position in trialstruct.inputs
+        n += 2
+    end
+    n
+end
+
+function num_outputs(trialstruct::NavigationTrial)
+    n = 0
+    if :head_direction in trialstruct.outputs
+        n += length(trialstruct.angular_pref.μ)
+    end
+    if :view in trialstruct.outputs
+        n += length(trialstruct.angular_pref.μ)
+    end
+    if :movement in trialstruct.outputs
+        n += 4
+    end
+    if :position in trialstruct.outputs
+        n += 2
+    end
+end
 
 function compute_error(trialstruct::NavigationTrial{T}, output::Array{T,3}, output_true::Array{T,3}) where T <: Real
     # we should differentiate depending on what the output is. If it is just position, an error is the deviation from the cell center
@@ -342,8 +385,8 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
     end
     pushfirst!(args, (:trialstruct, trial))
     Random.seed!(rng, rseed)
-    ninputs = length(trial.inputs)*length(trial.angular_pref.μ)
-    noutputs = length(trial.outputs)*2 # for position
+    ninputs = num_inputs(trial)
+    noutputs = num_outputs(trial)
     max_nsteps = trial.max_num_steps
     TrialIterator(
         function data_provider()
@@ -351,7 +394,7 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
             output = zeros(T, noutputs, max_nsteps, ntrials)
             output_mask = zeros(T, noutputs, max_nsteps, ntrials)
             for i in 1:ntrials
-                position, head_direction,viewfield = trial(;rng=rng,Δθstep=Δθstep,fov=fov)
+                position, head_direction,viewfield,movement = trial(;rng=rng,Δθstep=Δθstep,fov=fov)
                 offset = 0
                 if :view in trial.inputs
                     input[offset+1:offset+size(viewfield,1), 1:size(viewfield,2),i]  .= viewfield
@@ -361,8 +404,18 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
                     input[offset+1:offset+size(head_direction,1), 1:size(head_direction,2),i]  .= head_direction
                     offset += size(head_direction,1)
                 end
+                if :movement in trial.inputs
+                    input[offset+1:offset+size(movement,1), 1:size(movement,2),i]  .= movement
+                    offset += size(movement,1)
+                end
+                offset = 0
                 if :position in trial.outputs
-                    output[1:size(position,1), 1:size(position,2),i] .= position
+                    output[offset+1:offset+size(position,1), 1:size(position,2),i] .= position
+                    offset += size(position,1)
+                end
+                if :head_direaction in trial.outputs
+                    output[offset+1:offset+size(head_direction,1), 1:size(head_direction,2),i]  .= head_direction
+                    offset += size(head_direction,1)
                 end
                 output_mask[:,1:size(position,2),i] .= one(T)
             end
