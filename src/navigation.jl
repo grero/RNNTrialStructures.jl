@@ -291,8 +291,38 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     position, head_direction, viewf
 end
 
-num_inputs(trialstruct::NavigationTrial) = length(trialstruct.inputs)*length(trialstruct.angular_pref.μ)
-num_outputs(trialstruct::NavigationTrial) = 2  # for position
+function num_inputs(trialstruct::NavigationTrial)
+    n = 0
+    if :head_direction in trialstruct.inputs
+        n += length(trialstruct.angular_pref.μ)
+    end
+    if :view in trialstruct.inputs
+        n += length(trialstruct.angular_pref.μ)
+    end
+    if :movement in trialstruct.inputs
+        n += 4
+    end
+    if :position in trialstruct.inputs
+        n += 2
+    end
+    n
+end
+
+function num_outputs(trialstruct::NavigationTrial)
+    n = 0
+    if :head_direction in trialstruct.outputs
+        n += length(trialstruct.angular_pref.μ)
+    end
+    if :view in trialstruct.outputs
+        n += length(trialstruct.angular_pref.μ)
+    end
+    if :movement in trialstruct.outputs
+        n += 4
+    end
+    if :position in trialstruct.outputs
+        n += 2
+    end
+end
 
 function compute_error(trialstruct::NavigationTrial{T}, output::Array{T,3}, output_true::Array{T,3}) where T <: Real
     # we should differentiate depending on what the output is. If it is just position, an error is the deviation from the cell center
@@ -342,8 +372,8 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
     end
     pushfirst!(args, (:trialstruct, trial))
     Random.seed!(rng, rseed)
-    ninputs = length(trial.inputs)*length(trial.angular_pref.μ)
-    noutputs = length(trial.outputs)*2 # for position
+    ninputs = num_inputs(trial)
+    noutputs = num_outputs(trial)
     max_nsteps = trial.max_num_steps
     TrialIterator(
         function data_provider()
