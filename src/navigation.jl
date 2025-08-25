@@ -394,7 +394,7 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
             output = zeros(T, noutputs, max_nsteps, ntrials)
             output_mask = zeros(T, noutputs, max_nsteps, ntrials)
             for i in 1:ntrials
-                position, head_direction,viewfield = trial(;rng=rng,Δθstep=Δθstep,fov=fov)
+                position, head_direction,viewfield,movement = trial(;rng=rng,Δθstep=Δθstep,fov=fov)
                 offset = 0
                 if :view in trial.inputs
                     input[offset+1:offset+size(viewfield,1), 1:size(viewfield,2),i]  .= viewfield
@@ -404,8 +404,18 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
                     input[offset+1:offset+size(head_direction,1), 1:size(head_direction,2),i]  .= head_direction
                     offset += size(head_direction,1)
                 end
+                if :movement in trial.inputs
+                    input[offset+1:offset+size(movement,1), 1:size(movement,2),i]  .= movement
+                    offset += size(movement,1)
+                end
+                offset = 0
                 if :position in trial.outputs
-                    output[1:size(position,1), 1:size(position,2),i] .= position
+                    output[offset+1:offset+size(position,1), 1:size(position,2),i] .= position
+                    offset += size(position,1)
+                end
+                if :head_direaction in trial.outputs
+                    output[offset+1:offset+size(head_direction,1), 1:size(head_direction,2),i]  .= head_direction
+                    offset += size(head_direction,1)
                 end
                 output_mask[:,1:size(position,2),i] .= one(T)
             end
