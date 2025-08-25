@@ -277,7 +277,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     θq = get_view(position[:,1],θ, trial.arena;kwargs...)
     viewf[:,1] .= mean(trial.angular_pref(range(θq[1], stop=θq[2],length=10)),dims=2)
 
-    Δθ = T.([-Δθstep, 0.0, Δθstep])
+    Δθ = T.([-Δθstep, zero(T), Δθstep])
     for k in 2:nsteps
         θ += get_head_direction(Δθstep,θ;rng=rng,p_stay=p_stay) 
         i1,j1 = get_coordinate(i,j,trial.arena,θ;rng=rng)
