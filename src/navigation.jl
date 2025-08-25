@@ -270,6 +270,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     position[:,1] = get_position(i,j,trial.arena)
     viewf = zeros(T, length(trial.angular_pref.μ),nsteps)
     head_direction = zeros(T, length(trial.angular_pref.μ), nsteps)
+    movement = zeros(T,4,nsteps)  # up,down,left,right
 
     θ = rand(rng, θf)
     head_direction[:,1] = trial.angular_pref(θ)
@@ -279,7 +280,19 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     Δθ = T.([-Δθstep, 0.0, Δθstep])
     for k in 2:nsteps
         θ += get_head_direction(Δθstep,θ;rng=rng,p_stay=p_stay) 
-        i,j = get_coordinate(i,j,trial.arena,θ;rng=rng)
+        i1,j1 = get_coordinate(i,j,trial.arena,θ;rng=rng)
+        if i1 - i > 0
+            movement[1,k] = i1-i 
+        elseif i1 - i < 0
+            movement[2,k] = i-i1 
+        end
+        if j1 - j > 0
+            movement[4,k] = j1-j
+        elseif j1 - j < 0
+            movement[3,k] = j-j1
+        end
+        i = i1
+        j = j1
         position[:,k] = get_position(i,j,trial.arena)
         head_direction[:,k] = trial.angular_pref(θ)
         # get view angles
@@ -288,7 +301,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     end
     position./=[trial.arena.ncols*trial.arena.colsize, trial.arena.nrows*trial.arena.rowsize]
     position .= 0.8*position .+ 0.05 # rescale from 0.05 to 0.85 to avoid saturation
-    position, head_direction, viewf
+    position, head_direction, viewf, movement
 end
 
 function num_inputs(trialstruct::NavigationTrial)
