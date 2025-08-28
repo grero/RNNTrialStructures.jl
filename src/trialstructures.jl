@@ -861,7 +861,14 @@ function get_nsteps(trial::RandomSequenceTrial{T},n::Int64, dt,go_cue_onset=zero
     ns
 end
 
-function get_go_cue_onset(trial::RandomSequenceTrial{T}, n::Int64, dt::T, Δ::Int64) where T <: Real
+function get_trial_duration(trial::RandomSequenceTrial{T}, n::Int64, go_cue_onset=zero(T)) where T <: Real
+    Δ = round(Int64, go_cue_onset)
+    ns = n*(trial.input_duration + trial.delay_duration)
+    ns += n*trial.output_duration + Δ
+    ns
+end
+
+function get_go_cue_onset(trial::RandomSequenceTrial{T}, n::Int64, dt::T, Δ::Int64=0) where T <: Real
     input_dur = round(Int64,trial.input_duration/dt)
     delay_dur = round(Int64, trial.delay_duration/dt)
     n*(input_dur+delay_dur)+1
@@ -871,12 +878,14 @@ function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt
                                                                                     pre_cue_multiplier=one(T),
                                                                                     post_cue_multiplier=one(T),
                                                                                     σ=zero(T),
+                                                                                    reverse_output=false,
                                                                                     rng::AbstractRNG=Random.default_rng()
                                                                                     ) where T <: Real
     # create a hash of the arguments
     # TODO: This is quite clunky
-    args = [(:ntrials, ntrials),(:dt, dt), (:rseed, rseed), (:pre_cue_multiplier, pre_cue_multiplier),(:post_cue_multiplier, post_cue_multiplier), (:σ, σ), (:rng, rng)]
+    args = [(:ntrials, ntrials),(:dt, dt), (:rseed, rseed), (:pre_cue_multiplier, pre_cue_multiplier),(:post_cue_multiplier, post_cue_multiplier), (:σ, σ), (:reverse_output, reverse_output), (:rng, rng)]
     defaults = Dict{Symbol,Any}()
+    defaults[:reverse_output] = false
     h = signature(trialstruct)
     for (k,v) in args
         if !(k in keys(defaults)) || v != defaults[k]
@@ -897,7 +906,8 @@ function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt
             θ = get_trialid(trialstruct, rng)
             nsteps = get_nsteps(trialstruct, length(θ), dt)
             go_cue_onset = get_go_cue_onset(trialstruct, length(θ), dt, 0)
-            _input,_output = trialstruct(θ,zero(T), dt)
+            do_reverse = reverse_output  && (rand(rng) < 0.5)
+            _input,_output = trialstruct(θ,zero(T), dt;reverse_output=do_reverse)
             input[:,1:nsteps,i] .= _input
             output[:,1:nsteps,i] .= _output
             _go_cue_onset = 0
