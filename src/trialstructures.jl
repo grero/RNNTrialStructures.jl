@@ -927,6 +927,12 @@ function compute_error(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}
     sθ = sin.(θ)
     cθ = cos.(θ)
     Δ = Float32(2π)/length(angular_pref.μ)
+    # this is a bit clunky; we could just supply dt
+
+    max_nsteps = size(output,2)
+    max_trial_duration = get_trial_duration(trial, trial.max_seq_length)
+    dt = max_trial_duration/max_nsteps
+    output_dur = round(Int64, trial.output_duration/dt)
     err = fill(T(NaN), trial.max_seq_length+1,size(output_true,3))
     # loop over trials
     for (i,(output_t, output_true_t)) in enumerate(zip(eachslice(output,dims=3), eachslice(output_true,dims=3)))
@@ -937,16 +943,17 @@ function compute_error(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}
         if idx2 === nothing
             idx2 = size(output_t,2)
         else
-            idx2 = idx2 - 1
+            idx2 = idx2-1
         end
-        rr = output_t[:,idx1:idx2]
+        nq = div(idx2-idx1+1,output_dur)
+        rr = dropdims(mean(reshape(output_t[:,idx1:idx2], size(output_t,1), output_dur, nq),dims=2),dims=2)
         sumrr = sum(rr, dims=1)
         θrr = atan.(sum(rr.*sθ,dims=1)./sumrr, sum(rr.*cθ,dims=1)./sumrr)
-        rr_true = output_true_t[:,idx1:idx2]
+        rr_true = dropdims(mean(reshape(output_true_t[:,idx1:idx2], size(output_t,1), output_dur, nq),dims=2),dims=2)
         sumrr_true = sum(rr_true,dims=1)
         θrr_true = atan.(sum(rr_true.*sθ,dims=1)./sumrr_true, sum(rr_true.*cθ,dims=1)./sumrr_true)
         _err = dropdims(sqrt.(sin.(θrr .- θrr_true).^2),dims=1)
-        err[2:idx2-idx1+2,i] .= _err
+        err[2:nq+1,i] .= _err
         # fixation error
         err[1,i] = maximum(output_t[:,1:idx1-1])
     end
