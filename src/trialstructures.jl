@@ -990,6 +990,16 @@ function readout(trialstruct::RandomSequenceTrial{T}, x::Vector{T}) where T <: R
     readout(trialstruct.apref, x)
 end
 
+function readout(trialstruct::RandomSequenceTrial{T}, x::Matrix{T},window=1) where T <: Real
+    nsteps = size(x,2)
+    nv = div(nsteps,window)
+    θ = zeros(T, nv)
+    for j in 1:nv
+        θ[j] = readout(trialstruct, dropdims(mean(x[:,(j-1)*window+1:j*window],dims=2),dims=2))
+    end
+    θ 
+end
+
 function readout(apref::AngularPreference{T},x::Vector{T}) where T <: Real
     μ = apref.μ
     a = sum(x.*cos.(μ))
