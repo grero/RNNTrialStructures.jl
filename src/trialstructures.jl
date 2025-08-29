@@ -751,10 +751,7 @@ function matches(trial::MultipleAngleTrial{T}, output::AbstractArray{T,3}, outpu
 end
 
 function readout(trialstruct::MultipleAngleTrial{T}, x::Vector{T}) where T <: Real
-    μ = trialstruct.preference.μ
-    a = sum(x.*cos.(μ))
-    b = sum(x.*sin.(μ))
-    atan(b,a)
+    readout(trialstruct.preference,x)
 end
 
 """
@@ -990,7 +987,11 @@ function signature(trial::RandomSequenceTrial{T},h=zero(UInt32)) where T <: Real
 end
 
 function readout(trialstruct::RandomSequenceTrial{T}, x::Vector{T}) where T <: Real
-    μ = trialstruct.apref.μ
+    readout(trialstruct.apref, x)
+end
+
+function readout(apref::AngularPreference{T},x::Vector{T}) where T <: Real
+    μ = apref.μ
     a = sum(x.*cos.(μ))
     b = sum(x.*sin.(μ))
     atan(b,a)
