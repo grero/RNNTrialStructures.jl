@@ -345,7 +345,7 @@ function compute_error(trialstruct::NavigationTrial{T}, output::Array{T,3}, outp
         # find the sequence length
         idxc = findfirst(output_true_t .> T(0.05))
         idx1 = idxc.I[2]
-        idx2 = findfirst(dropdims(sum(output_true_t,dims=1),dims=1) .== zero(T))
+        idx2 = findfirst(dropdims(sum(output_true_t,dims=1),dims=1) .<= zero(T))
         if idx2 === nothing
             idx2 = size(output_t,2)
         else
@@ -390,8 +390,8 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
     max_nsteps = trial.max_num_steps
     TrialIterator(
         function data_provider()
-            input = zeros(T, ninputs, max_nsteps, ntrials)
-            output = zeros(T, noutputs, max_nsteps, ntrials)
+            input = -1*ones(T, ninputs, max_nsteps, ntrials)
+            output = -1*ones(T, noutputs, max_nsteps, ntrials)
             output_mask = zeros(T, noutputs, max_nsteps, ntrials)
             for i in 1:ntrials
                 position, head_direction,viewfield,movement = trial(;rng=rng,Δθstep=Δθstep,fov=fov)
