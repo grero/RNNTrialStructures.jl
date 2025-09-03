@@ -186,6 +186,12 @@ function signature(trial::NavigationTrial{T},h=zero(UInt32)) where T <: Real
     h
 end
 
+function get_circle_intersection(arena::Arena{T}, point::Vector{T}, θ::T) where T <: Real
+    pos_center = [get_center(arena)...,]
+    r = sqrt(sum(pos_center.^2))
+    get_circle_intersection(pos_center, r, point, θ)
+end
+
 function get_circle_intersection(origin::Vector{T}, r::T, point::Vector{T}, θ::T) where T <: Real
     (a,b) = (cos(θ),sin(θ))
     (x0,y0) = origin
@@ -199,13 +205,23 @@ function get_circle_intersection(origin::Vector{T}, r::T, point::Vector{T}, θ::
     point + t*[a,b]
 end
 
- function get_view(pos::Vector{T}, θ::T, arena::Arena{T};fov::T=T(π/2)) where T <: Real
+ function get_view(pos::Vector{T}, θ::T, arena::Arena{T};kwargs...) where T <: Real
     pos_center = [get_center(arena)...,]
+    get_view(pos, θ, pos_center;kwargs...)
+ end
+
+ function get_view(pos::Vector{T}, θ::T, pos_center;fov::T=T(π/2)) where T <: Real
+    θ1 = θ-fov/2
+    θ2 = θ+fov/2
+    get_view(pos, θ1, θ2, pos_center)
+ end
+
+ function get_view(pos::Vector{T}, θ1::T, θ2::T, pos_center) where T <: Real
     r = sqrt(sum(pos_center.^2))
     θr = T.([θ-fov/2, θ+fov/2])
     xq = zeros(T,2,2)
-    xq[1,:] = get_circle_intersection(pos_center, r, pos, θr[1])
-    xq[2,:] = get_circle_intersection(pos_center, r, pos, θr[2])
+    xq[1,:] = get_circle_intersection(pos_center, r, pos, θ1)
+    xq[2,:] = get_circle_intersection(pos_center, r, pos, θ2)
     xq .-= pos_center
     θq = atan.(xq[:,2], xq[:,1])
     # make sure we get the smallest range
@@ -216,10 +232,167 @@ end
     Qqm2 = extrema(θq2)
     Δ2 = Qqm2[2] - Qqm2[1]
     if Δ1 < Δ2
-        return Qqm1
+        return [Qqm1]
     else
-        return Qqm2
+        return [Qqm2]
     end
+ end
+
+ function find_line_intersection(po, p0, p1)
+    x0,y0 = p0
+    x1,y1 = p1
+    x,y = po
+    a = (x-x0)*(x1-x0) + (y-y0)*(y1-y0)
+    a /= (x1-x0)^2 + (y1-y0)^2
+    a = max(min(a,1),0)
+    (x0 + a*(x1-x0), y0+a*(y1-y0))
+ end
+
+ function find_line_intersection(po, v::Vector{T}, p0, p1) where T <: Real
+    x0,y0 = p0
+    x1,y1 = p1
+    xp,yp = po
+    vx,vy = v
+    if vx > 0
+        a = (yp - y0 + (x0-xp)*vy/vx)/(y1-y0 - (x1-x0)*vy/vx)
+    else
+        a = (xp - x0 + (y0-yp)*vx/vy)/(x1-x0 - (y1-y0)*vx/vy)
+    end
+    a = max(min(a,one(T)),zero(T))
+
+    (x0 + a*(x1-x0), y0 + a*(y1-y0))
+ end
+
+ function project_to_view(pos, θ::T, p, fov::T) where T <: Real
+    vv = [cos(θ), sin(θ)]
+    # orthogonal to line of sight
+    vp = [cos(θ+π/2), sin(θ+π/2)]
+
+    #find the distance by projecting onto vv
+    dd = (p .- pos)'*vv
+    # the the projected plane size at this distance
+    l0 = dd*tan(fov/2)
+    dl = 2*l0
+    dp = (p .- pos)'*vp
+    dd, dp
+    # associate an angle with this
+    ϕ = atan(dp, dd)
+    dd, dp, ϕ
+ end
+
+ function get_view(pos::Vector{T}, θ::T, arena::MazeArena{T};fov::T=T(π/2)) where T <: Real
+    # check if any obstacle is in the view
+    obstructed_angles = Tuple{T,T}[]
+    obstacle_points = get_obstacle_points(arena)
+    pos_center = [get_center(arena)...]
+    for (ii,obstacle) in enumerate(obstacle_points)
+
+        a_min,a_max = (T(Inf),T(-Inf))
+        # assume polygon, i.e. each successive point is connnected
+        # TODO: We need to care about distance as well, i.e. only process that which is not hidden behind other parts
+        # of the obstale
+        angles = T[]
+        for (jj,p) in enumerate(obstacle)
+            dd,dp,ϕ = project_to_view(pos, θ, p, fov)
+            if ϕ < -fov/2
+                ϕ = -fov/2
+            elseif ϕ > fov/2
+                ϕ = fov/2
+            end
+            #if -fov/2 <= ϕ <= fov/2
+            push!(angles, mod(ϕ + θ,2π))
+            #end
+        end
+        if !isempty(angles)
+            angle_min, angle_max = extrema(angles)
+            # convert this to allocentric
+            angle_min, angle_max = first(get_view(pos, angle_min, angle_max, pos_center))
+        else
+            angle_min, angle_max = (zero(T), zero(T))
+        end
+
+        for (p_start,p_end) in zip(obstacle, circshift(obstacle,1))
+
+            # does the fov intersect
+            pp1 = find_line_intersection(pos,[cos(θ-fov/2),sin(θ-fov/2)], p_start, p_end)
+            pp2 = find_line_intersection(pos,[cos(θ+fov/2),sin(θ+fov/2)], p_start, p_end)
+
+            # closest point on the line
+            pp = find_line_intersection(pos, p_start, p_end)
+            # a couple of scenarious
+            # 1) one of the fov lines intersect the obstacle
+            # convert to position
+            rr = pp .- pos
+            a = atan(rr[2],rr[1])
+            
+            # get the angle of the ray
+            # TODO: We need to find the interaction of the ray with
+            # any point on the obstacle
+            # project the 
+            # 
+            # assumes that the fov completely encloses the obstacle. What if it doesn't?
+            if θ - fov/2 <= a <= θ+fov/2
+                # this obstacle is in view
+                # determine the side facing the agent
+                if a < a_min
+                    a_min = a
+                elseif a > a_max
+                    a_max = a
+                end
+            else
+                # the fov intersects the obstable
+                if p_start < pp1 < p_end
+                    a_min = min(a_min, θ-fov/2)
+                end
+                if p_start < pp2 < p_end
+                    a_max = max(a_max, θ+fov/2)
+                end
+            end
+        end
+        #if a_min < a_max
+        #    push!(obstructed_angles, (a_min, a_max))
+        #end
+        if angle_min < angle_max
+            push!(obstructed_angles, (angle_min, angle_max))
+        end
+    end
+    @show obstructed_angles
+    θ12 = get_view(pos,θ,pos_center;fov=fov)
+    # θ12 are in allocentric coordinates
+    θ1,θ2 = first(θ12)
+    @show θ1, θ2
+    θs = [(θ1,θ2)]
+    if length(obstructed_angles) > 0
+        # TODO: Are all the angles outside the cone
+        valid = false
+        for a1a2 in obstructed_angles
+            for a in a1a2 
+                if (θ1 < a < θ2)
+                   valid = true
+                    break
+                end
+                if valid 
+                    break
+                end
+            end
+        end
+        if valid
+            sort!(obstructed_angles, by=a->a[1])
+            θs = Tuple{T,T}[]
+            # θ1 forms the minimum. Include an angle from θ1 to the first touch point
+            if θ1 < obstructed_angles[1][1]
+                push!(θs, (θ1, obstructed_angles[1][1]))
+            end
+            for (a,b) in zip(1:length(obstructed_angles)-1, 2:length(obstructed_angles))
+                push!(θs, (obstructed_angles[a][2], obstructed_angles[b][1]))
+            end
+            if θ2 > obstructed_angles[end][2]
+                push!(θs, (obstructed_angles[end][2],θ2))
+            end
+        end
+    end
+    @show θs
+    θs
  end
 
 function get_view_old(pos::Vector{T}, θ::T,arena::Arena{T}) where T <: Real
