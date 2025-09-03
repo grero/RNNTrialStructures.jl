@@ -325,9 +325,11 @@ end
             elseif ϕ > fov/2
                 ϕ = fov/2
             end
+            # we only care about this obstacle if it is in front of the agent
+            if dd > 0
             #if -fov/2 <= ϕ <= fov/2
-            push!(angles, mod(ϕ + θ,2π))
-            #end
+                push!(angles, mod(ϕ + θ,2π))
+            end
         end
         if !isempty(angles)
             angle_min, angle_max = extrema(angles)
