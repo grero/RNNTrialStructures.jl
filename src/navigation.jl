@@ -225,6 +225,7 @@ end
     xq .-= pos_center
     θq = atan.(xq[:,2], xq[:,1])
     # make sure we get the smallest range
+    #θq[θq.<0] .+= 2π
     Qqm1 = extrema(θq)
     Δ1 = Qqm1[2] - Qqm1[1]
     θq2 = copy(θq)
@@ -232,10 +233,35 @@ end
     Qqm2 = extrema(θq2)
     Δ2 = Qqm2[2] - Qqm2[1]
     if Δ1 < Δ2
-        return [Qqm1]
+        Qqm = Qqm1
     else
-        return [Qqm2]
+        Qqm = Qqm2
     end
+    # if both angles are negative, shift them
+    if all(Qqm .< 0)
+        Qqm = Qqm .+ 2π 
+    end
+    return [Qqm]
+ end
+
+ function get_smallest_wedge(θ1, θ2)
+    θq = [θ1,θ2]
+    Qqm1 = extrema(θq)
+    Δ1 = Qqm1[2] - Qqm1[1]
+    θq2 = copy(θq)
+    θq2[θq2.<0] .+= 2π
+    Qqm2 = extrema(θq2)
+    Δ2 = Qqm2[2] - Qqm2[1]
+    if Δ1 < Δ2
+        Qqm = Qqm1
+    else
+        Qqm = Qqm2
+    end
+    # if both angles are negative, shift them
+    if all(Qqm .< 0)
+        Qqm = Qqm .+ 2π 
+    end
+    return Qqm
  end
 
  function find_line_intersection(po, p0, p1)
