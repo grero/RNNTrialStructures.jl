@@ -478,8 +478,6 @@ Thanks to Mistral.ai for helping me sort this one out!
                     return Tuple{T,T}[]
                 end
             end
-            # TODO: This doesn't really deal with e.g. -π == π very well
-            sort!(obstructed_angles, by=a->a[1],lt=compare_angles)
             θs = Tuple{T,T}[]
             # θ1 forms the minimum. Include an angle from θ1 to the first touch point
             if compare_angles(θ1, obstructed_angles[1][1])
