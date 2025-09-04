@@ -372,7 +372,6 @@ end
 
  function get_view(pos::Vector{T}, θ1::T, θ2::T, pos_center) where T <: Real
     r = sqrt(sum(pos_center.^2))
-    θr = T.([θ-fov/2, θ+fov/2])
     xq = zeros(T,2,2)
     xq[1,:] = get_circle_intersection(pos_center, r, pos, θ1)
     xq[2,:] = get_circle_intersection(pos_center, r, pos, θ2)
