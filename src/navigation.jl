@@ -428,6 +428,11 @@ end
             push!(obstructed_angles, (angle_min, angle_max))
         end
     end
+
+    if length(obstructed_angles) > 1
+        sort!(obstructed_angles, by=a->a[1])
+        obstructed_angles = consolidate_view(obstructed_angles)
+    end
     # check if occlusions are covered by other occlusions
     keep = fill(true, length(obstructed_angles))
     for (i,oc1) in enumerate(obstructed_angles)
