@@ -306,6 +306,50 @@ end
     dd, dp, ϕ
  end
 
+ """
+ Merge overlapping views
+ """
+ function consolidate_view(oo::Vector{Tuple{T,T}}) where T <: Real
+    oo2 = [oo[1]]
+    for oc1 in oo[2:end]
+        merged = false
+        for ooe in oo2
+            if (ooe[2] >= oc1[1])
+                oo2[end] = (min(ooe[1], oc1[1]), max(ooe[2], oc1[2]))
+                merged = true
+                break
+            end
+        end
+        if !merged
+            push!(oo2, oc1)
+        end
+    end
+    oo2
+ end
+
+ function is_occluded(oo::Vector{Tuple{T,T}}) where T <: Real
+    keep = fill(false, length(oo))
+    for (i,oc2) in enumerate(oo)
+        keep[i] = !is_occluded(oc2, oo[keep])
+    end
+    keep
+ end
+
+ function is_occluded(oc2::Tuple{T,T}, oo::Vector{Tuple{T,T}}) where T <: Real
+    _is_occluded = false
+    for oc1 in oo
+        if oc1 == oc2
+            continue
+        end
+        if oc1[1] < oc2[1] < oc2[2] < oc1[2]
+            # oc2 is contained with oc1; remove it
+            _is_occluded = true
+            break
+        end
+    end
+    _is_occluded
+ end
+
  function get_view(pos::Vector{T}, θ::T, arena::MazeArena{T};fov::T=T(π/2)) where T <: Real
     # check if any obstacle is in the view
     obstructed_angles = Tuple{T,T}[]
