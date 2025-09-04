@@ -705,10 +705,10 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     θq = get_view(position[:,1],θ, trial.arena;kwargs...)
     for _θq in θq
         viewf[:,1] .= mean(trial.angular_pref(range(_θq[1], stop=_θq[2],length=10)),dims=2)
-    end
-    for (i,_θ) in enumerate(range(θq[1], stop=θq[2], length=16))
-        xq = get_circle_intersection(arena, position[:,1], _θ)
-        dist[i,1] = norm(xq - position[:,1])/arena_diam
+        for (i,_θ) in enumerate(range(_θq[1], stop=_θq[2], length=16))
+            xq = get_circle_intersection(arena, position[:,1], _θ)
+            dist[i,1] = norm(xq - position[:,1])/arena_diam
+        end
     end
 
     Δθ = T.([-Δθstep, zero(T), Δθstep])
@@ -733,11 +733,11 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
         θq = get_view(position[:,k],θ, trial.arena;kwargs...)
         for _θq in θq
             viewf[:,k] .+= mean(trial.angular_pref(range(_θq[1], stop=_θq[2],length=10)),dims=2)
-        end
-        # get the distance
-        for (i,_θ) in enumerate(range(θq[1], stop=θq[2], length=16))
-            xq = get_circle_intersection(arena, position[:,k], _θ)
-            dist[i,k] = norm(xq - position[:,k])/arena_diam
+            # get the distance
+            for (i,_θ) in enumerate(range(_θq[1], stop=_θq[2], length=16))
+                xq = get_circle_intersection(arena, position[:,k], _θ)
+                dist[i,k] = norm(xq - position[:,k])/arena_diam
+            end
         end
     end
     position./=[trial.arena.ncols*trial.arena.colsize, trial.arena.nrows*trial.arena.rowsize]
