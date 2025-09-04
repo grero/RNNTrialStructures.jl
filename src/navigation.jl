@@ -452,11 +452,9 @@ Thanks to Mistral.ai for helping me sort this one out!
         obstructed_angles = consolidate_view(obstructed_angles)
     end
   
-    @show obstructed_angles
     θ12 = get_view(pos,θ,pos_center;fov=fov)
     # θ12 are in allocentric coordinates
     θ1,θ2 = first(θ12)
-    @show θ1, θ2
     θs = [(θ1,θ2)]
     if length(obstructed_angles) > 0
         # TODO: Are all the angles outside the cone
@@ -488,21 +486,17 @@ Thanks to Mistral.ai for helping me sort this one out!
             #if θ1 < obstructed_angles[1][1]
             #if shift_angle(θ1) < shift_angle(obstructed_angles[1][1])
                 push!(θs, order_angles(θ1, obstructed_angles[1][1]))
-                @show "1" θs[end]
             end
             for (a,b) in zip(1:length(obstructed_angles)-1, 2:length(obstructed_angles))
                 push!(θs, order_angles(obstructed_angles[a][2], obstructed_angles[b][1]))
-                @show "2" θs[end] obstructed_angles[a][2] obstructed_angles[b][1]
             end
             if compare_angles(obstructed_angles[end][2], θ2)
             #if θ2 > obstructed_angles[end][2]
             #if shift_angle(θ2) > shift_angle(obstructed_angles[end][2])
                 push!(θs, order_angles(obstructed_angles[end][2],θ2))
-                @show "3" θs[end]
             end
         end
     end
-    @show θs
     θs
  end
 
