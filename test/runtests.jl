@@ -3,6 +3,15 @@ using Random
 using StableRNGs
 using Test
 
+@testset "NavigationUtils" begin
+    θ1,θ2=RNNTrialStructures.order_angles(0.4268554, -0.25289375)
+    @test θ2 ≈ 0.4268554 
+    @test θ1 ≈ -0.25289375
+
+    θ1,θ2=RNNTrialStructures.order_angles( 6.061203f0,0.36774418f0)
+    @test θ1 ≈ -0.22198230424989873
+    @test θ2 ≈ 0.36774418f0
+end
 @testset "Place cells" begin
     pc = RNNTrialStructures.PlaceCells([(0.5, 0.5), (-0.5, -0.5)],[1.0, 1.0])
     output = pc((0.0, 0.0))
