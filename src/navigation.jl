@@ -382,7 +382,7 @@ end
     Qqm1 = extrema(θq)
     Δ1 = Qqm1[2] - Qqm1[1]
     θq2 = copy(θq)
-    θq2[θq2.<0] .+= 2π
+    θq2[θq2.<0] .+= T(2π)
     Qqm2 = extrema(θq2)
     Δ2 = Qqm2[2] - Qqm2[1]
     if Δ1 < Δ2
@@ -392,7 +392,7 @@ end
     end
     # if both angles are negative, shift them
     if all(Qqm .< 0)
-        Qqm = Qqm .+ 2π 
+        Qqm = Qqm .+ T(2π)
     end
     return [Qqm]
  end
