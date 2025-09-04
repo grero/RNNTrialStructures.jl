@@ -437,6 +437,7 @@ Thanks to Mistral.ai for helping me sort this one out!
             angle_min, angle_max = extrema(angles)
             # convert this to allocentric
             angle_min, angle_max = first(get_view(pos, angle_min, angle_max, pos_center))
+            angle_min,angle_max = order_angles(angle_min, angle_max)
         else
             angle_min, angle_max = (zero(T), zero(T))
         end
@@ -483,7 +484,7 @@ Thanks to Mistral.ai for helping me sort this one out!
         #    push!(obstructed_angles, (a_min, a_max))
         #end
         if angle_min < angle_max
-            push!(obstructed_angles, (angle_min, angle_max))
+            push!(obstructed_angles, order_angles(angle_min, angle_max))
         end
     end
 
@@ -541,17 +542,24 @@ Thanks to Mistral.ai for helping me sort this one out!
                 end
             end
             # TODO: This doesn't really deal with e.g. -π == π very well
-            sort!(obstructed_angles, by=a->a[1])
+            sort!(obstructed_angles, by=a->a[1],lt=compare_angles)
             θs = Tuple{T,T}[]
             # θ1 forms the minimum. Include an angle from θ1 to the first touch point
-            if sin( obstructed_angles[1][1]-θ1) > 0 # θ1 comes before the first obstructed angle
-                push!(θs, (θ1, obstructed_angles[1][1]))
+            if compare_angles(θ1, obstructed_angles[1][1])
+            #if θ1 < obstructed_angles[1][1]
+            #if shift_angle(θ1) < shift_angle(obstructed_angles[1][1])
+                push!(θs, order_angles(θ1, obstructed_angles[1][1]))
+                @show "1" θs[end]
             end
             for (a,b) in zip(1:length(obstructed_angles)-1, 2:length(obstructed_angles))
-                push!(θs, (obstructed_angles[a][2], obstructed_angles[b][1]))
+                push!(θs, order_angles(obstructed_angles[a][2], obstructed_angles[b][1]))
+                @show "2" θs[end] obstructed_angles[a][2] obstructed_angles[b][1]
             end
-            if sin(θ2-obstructed_angles[end][2]) > 0 # θ2 comes after the the last obstructed angle
-                push!(θs, (obstructed_angles[end][2],θ2))
+            if compare_angles(obstructed_angles[end][2], θ2)
+            #if θ2 > obstructed_angles[end][2]
+            #if shift_angle(θ2) > shift_angle(obstructed_angles[end][2])
+                push!(θs, order_angles(obstructed_angles[end][2],θ2))
+                @show "3" θs[end]
             end
         end
     end
