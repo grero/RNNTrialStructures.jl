@@ -103,6 +103,87 @@ function check_step(i::Int64,j::Int64, ncols::Int64, nrows::Int64)
     possible_steps
 end
 
+function check_step(i,j,arena::Arena)
+    check_step(i,j,arena.ncols, arena.nrows)
+end
+
+"""
+    validate_step(i::Int64, j::Int64, Δi::Int64, Δj::Int64, arena::Arena)
+
+Validate the step (i+Δi, j+Δj) in the context of `arena`, returning the validated Δi and Δj.
+
+If a step is not within the bounds of `arena`, the step is set to zero.
+
+juliadoc````
+    julia> arena = Arena(5,5,1.0,1.0)
+    julia> validate_step(1,2, -1, -1, arena)
+    (0,-1) 
+    julia> validate_step(2,1, -1, -1, arena)
+    (-1,0)
+    julia> validate_step(5,2,1,1,arena)
+    (0,1)
+    julia validate_step(2,5,1,1,arena)
+    (1,0)
+````
+"""
+function validate_step(i::Int64, j::Int64, Δi::Int64, Δj::Int64, arena::Arena)
+    Δi = ifelse(0 < i+Δi < arena.ncols, Δi, 0)
+    Δj = ifelse(0 < j+Δj < arena.nrows, Δj, 0)
+    Δi, Δj
+end
+
+function validate_step(i::Int64, j::Int64, vv::Vector{T}, arena::Arena{T}) where T <: Real
+    ss = [-1 1 0 0;
+           0 0 -1 1]
+    (Δi,Δj) = round.(Int64, ss*vv)
+    validate_step(i,j, Δi,Δj, arena)
+end
+
+function check_step(i::Int64, j::Int64, arena::MazeArena{T}) where T <: Real
+    in_any(x) = any([in(obstacle)(x) for obstacle in arena.obstacles]) # array of functions
+    possible_steps = [(0,0)]
+    if (i < arena.ncols) && !(in_any((i+1,j)))
+        push!(possible_steps, (1,0))
+    end
+    if (i > 1) && !(in_any((i-1,j)))
+        push!(possible_steps, (-1,0))
+    end
+    if (j < arena.nrows) && !(in_any((i,j+1)))
+        push!(possible_steps, (0,1))
+    end
+    if (j > 1) && !(in_any((i,j-1)))
+        push!(possible_steps, (0,-1))
+    end
+    possible_steps
+end
+
+function get_obstacle_points(arena::MazeArena{T}) where T <: Real
+    ncols = arena.ncols
+    colsize = arena.colsize
+    rowsize = arena.rowsize
+    nrows = arena.nrows
+
+    points = Vector{Tuple{T,T}}[]
+    for obstacle in arena.obstacles
+        # expand every grid point
+        xmin = minimum([_p[1] for _p in obstacle])
+        ymin = minimum([_p[2] for _p in obstacle])
+        xmax = maximum([_p[1] for _p in obstacle])
+        ymax = maximum([_p[2] for _p in obstacle])
+
+        #lower left
+        p0 = ((xmin-1)*colsize, (ymin-1)*rowsize)
+        # lower right
+        p1 = (xmax*colsize, (ymin-1)*rowsize)
+        # upper right
+        p2 = (xmax*colsize, ymax*rowsize)
+        # upper left
+        p3 = ((xmin-1)*colsize, ymax*rowsize)
+        push!(points, [p0,p1,p2,p3])
+    end
+    points
+end
+
 """
     get_coordinate(i::Int64, j::Int64,arena::Arena{T};Δθ=π/4,rng=Random.default_rng()) where T <: Real
 
