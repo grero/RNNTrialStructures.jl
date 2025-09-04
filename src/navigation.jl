@@ -676,6 +676,8 @@ end
 
 function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/4), p_stay=T(1/3), p_hd=T(1/4), kwargs...) where T <: Real
     # random initiarange(-T(π), stop=T(π), step=π/4)li
+    arena = trial.arena
+    arena_diam = sqrt(sum(abs2, extent(arena)))
     θf = range(zero(T), stop=T(2π), step=T(π/4))
     nsteps = rand(rng, trial.min_num_steps:trial.max_num_steps)
     position = zeros(T,2,nsteps)
