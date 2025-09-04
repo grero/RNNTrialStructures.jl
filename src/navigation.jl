@@ -457,42 +457,28 @@ Thanks to Mistral.ai for helping me sort this one out!
     θ1,θ2 = first(θ12)
     θs = [(θ1,θ2)]
     if length(obstructed_angles) > 0
-        # TODO: Are all the angles outside the cone
-        valid = true 
-        for a1a2 in obstructed_angles
-            for a in a1a2 
-                if (θ1 < a < θ2)
-                   valid = true
-                    break
-                end
-                if valid 
-                    break
-                end
+        
+        # check if the view is completely blocked
+        for o_angle in obstructed_angles
+            if θ1 ≈ o_angle[1] && o_angle[2] ≈ θ2
+                # single occlusion completely blocking the view
+                return Tuple{T,T}[]
             end
         end
-        if valid
-            # check if the view is completely blocked
-            for o_angle in obstructed_angles
-                if θ1 ≈ o_angle[1] && o_angle[2] ≈ θ2
-                    # single occlusion completely blocking the view
-                    return Tuple{T,T}[]
-                end
-            end
-            θs = Tuple{T,T}[]
-            # θ1 forms the minimum. Include an angle from θ1 to the first touch point
-            if compare_angles(θ1, obstructed_angles[1][1])
-            #if θ1 < obstructed_angles[1][1]
-            #if shift_angle(θ1) < shift_angle(obstructed_angles[1][1])
-                push!(θs, order_angles(θ1, obstructed_angles[1][1]))
-            end
-            for (a,b) in zip(1:length(obstructed_angles)-1, 2:length(obstructed_angles))
-                push!(θs, order_angles(obstructed_angles[a][2], obstructed_angles[b][1]))
-            end
-            if compare_angles(obstructed_angles[end][2], θ2)
-            #if θ2 > obstructed_angles[end][2]
-            #if shift_angle(θ2) > shift_angle(obstructed_angles[end][2])
-                push!(θs, order_angles(obstructed_angles[end][2],θ2))
-            end
+        θs = Tuple{T,T}[]
+        # θ1 forms the minimum. Include an angle from θ1 to the first touch point
+        if compare_angles(θ1, obstructed_angles[1][1])
+        #if θ1 < obstructed_angles[1][1]
+        #if shift_angle(θ1) < shift_angle(obstructed_angles[1][1])
+            push!(θs, order_angles(θ1, obstructed_angles[1][1]))
+        end
+        for (a,b) in zip(1:length(obstructed_angles)-1, 2:length(obstructed_angles))
+            push!(θs, order_angles(obstructed_angles[a][2], obstructed_angles[b][1]))
+        end
+        if compare_angles(obstructed_angles[end][2], θ2)
+        #if θ2 > obstructed_angles[end][2]
+        #if shift_angle(θ2) > shift_angle(obstructed_angles[end][2])
+            push!(θs, order_angles(obstructed_angles[end][2],θ2))
         end
     end
     θs
