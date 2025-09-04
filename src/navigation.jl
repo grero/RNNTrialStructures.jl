@@ -451,27 +451,7 @@ Thanks to Mistral.ai for helping me sort this one out!
         sort!(obstructed_angles, by=a->a[1],lt=compare_angles)
         obstructed_angles = consolidate_view(obstructed_angles)
     end
-    # check if occlusions are covered by other occlusions
-    keep = fill(true, length(obstructed_angles))
-    for (i,oc1) in enumerate(obstructed_angles)
-        if !keep[i]
-            continue
-        end
-        for (j,oc2) in enumerate(obstructed_angles)
-            if !keep[j]
-                continue
-            end
-            if oc1 == oc2
-                continue
-            end
-            if oc1[1] < oc2[1] < oc2[2] < oc1[2]
-                # oc2 is contained with oc1; remove it
-                keep[j] = false
-            end
-        end
-    end
-    @show obstructed_angles
-    obstructed_angles = obstructed_angles[keep]
+  
     @show obstructed_angles
     θ12 = get_view(pos,θ,pos_center;fov=fov)
     # θ12 are in allocentric coordinates
