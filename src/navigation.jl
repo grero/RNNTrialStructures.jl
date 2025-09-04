@@ -40,7 +40,7 @@ function get_center_position(arena::Arena{T}) where T <: Real
     get_position(i,j,arena)
 end
 
-function get_center(arena::Arena{T}) where T <: Real
+function get_center(arena::AbstractArena)
     w,h = extent(arena)
     w/2,h/2
 end
