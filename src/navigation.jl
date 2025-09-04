@@ -442,47 +442,6 @@ Thanks to Mistral.ai for helping me sort this one out!
             angle_min, angle_max = (zero(T), zero(T))
         end
 
-        for (p_start,p_end) in zip(obstacle, circshift(obstacle,1))
-
-            # does the fov intersect
-            pp1 = find_line_intersection(pos,[cos(θ-fov/2),sin(θ-fov/2)], p_start, p_end)
-            pp2 = find_line_intersection(pos,[cos(θ+fov/2),sin(θ+fov/2)], p_start, p_end)
-
-            # closest point on the line
-            pp = find_line_intersection(pos, p_start, p_end)
-            # a couple of scenarious
-            # 1) one of the fov lines intersect the obstacle
-            # convert to position
-            rr = pp .- pos
-            a = atan(rr[2],rr[1])
-            
-            # get the angle of the ray
-            # TODO: We need to find the interaction of the ray with
-            # any point on the obstacle
-            # project the 
-            # 
-            # assumes that the fov completely encloses the obstacle. What if it doesn't?
-            if θ - fov/2 <= a <= θ+fov/2
-                # this obstacle is in view
-                # determine the side facing the agent
-                if a < a_min
-                    a_min = a
-                elseif a > a_max
-                    a_max = a
-                end
-            else
-                # the fov intersects the obstable
-                if p_start < pp1 < p_end
-                    a_min = min(a_min, θ-fov/2)
-                end
-                if p_start < pp2 < p_end
-                    a_max = max(a_max, θ+fov/2)
-                end
-            end
-        end
-        #if a_min < a_max
-        #    push!(obstructed_angles, (a_min, a_max))
-        #end
         if angle_min < angle_max
             push!(obstructed_angles, order_angles(angle_min, angle_max))
         end
