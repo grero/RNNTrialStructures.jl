@@ -366,18 +366,20 @@ Thanks to Mistral.ai for helping me sort this one out!
  Merge overlapping views
  """
  function consolidate_view(oo::Vector{Tuple{T,T}}) where T <: Real
-    oo2 = [oo[1]]
+    oo2 = [order_angles(oo[1]...)]
     for oc1 in oo[2:end]
         merged = false
         for ooe in oo2
-            if (ooe[2] >= oc1[1])
-                oo2[end] = (min(ooe[1], oc1[1]), max(ooe[2], oc1[2]))
+            if compare_angles(oc1[1], ooe[2])
+                amin = ifelse(compare_angles(ooe[1], oc1[1]), ooe[1], oc1[1])
+                amax = ifelse(compare_angles(oc1[2], ooe[2]), ooe[2], oc1[2])
+                oo2[end] = order_angles(amin,amax)
                 merged = true
                 break
             end
         end
         if !merged
-            push!(oo2, oc1)
+            push!(oo2, order_angles(oc1...))
         end
     end
     oo2
