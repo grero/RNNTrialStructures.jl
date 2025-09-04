@@ -1,14 +1,32 @@
 using LinearAlgebra
 
-struct Arena{T<:Real}
+abstract type AbstractArena{T<:Real} end
+struct Arena{T<:Real} <: AbstractArena{T}
     ncols::Int64
     nrows::Int64
     colsize::T
     rowsize::T
 end
 
+struct MazeArena{T<:Real} <: AbstractArena{T}
+    ncols::Int64
+    nrows::Int64
+    colsize::T
+    rowsize::T
+    obstacles::Vector{Vector{Tuple{Int64,Int64}}} # vector of vector of points defining the borders of the obstacles
+end
+
 function signature(arena::Arena{T},h=zero(UInt32)) where T <: Real
    for q in [arena.ncols, arena.nrows, arena.colsize, arena.rowsize]
+        for ii in q
+            h = crc32c(string(ii), h)
+        end
+    end 
+    h
+end
+
+function signature(arena::MazeArena{T},h=zero(UInt32)) where T <: Real
+   for q in [arena.ncols, arena.nrows, arena.colsize, arena.rowsize, arena.obstacles]
         for ii in q
             h = crc32c(string(ii), h)
         end
@@ -61,8 +79,8 @@ function get_coordinate(i::Int64, j::Int64,arena::Arena{T};Δθ=π/4,rng=Random.
     (i,j)
 end
 
-function get_coordinate(i::Int64, j::Int64,arena::Arena{T},θhd::T;Δθ::T=T(π/4),rng=Random.default_rng(),p_hd=T(0.5)) where T <: Real
-    possible_steps = check_step(i,j,arena.ncols,arena.nrows)
+function get_coordinate(i::Int64, j::Int64,arena::AbstractArena{T},θhd::T;Δθ::T=T(π/4),rng=Random.default_rng(),p_hd=T(0.5)) where T <: Real
+    possible_steps = check_step(i,j,arena)
     nsteps = length(possible_steps)
     #figure out the step most aligned with the current head direction
     dx = [cos(θhd),sin(θhd)]
@@ -95,12 +113,31 @@ function get_coordinate(arena::Arena{T};rng=Random.default_rng()) where T <: Rea
     (i,j)
 end
 
-function get_position(arena::Arena{T};rng=Random.default_rng()) where T <: Real
+function get_coordinate(arena::MazeArena{T};rng=Random.default_rng()) where T <: Real
+    valid_points = Tuple{Int64, Int64}[]
+    for i in 1:arena.ncols
+        for j in 1:arena.nrows
+            valid_point = true
+            for obstacle in arena.obstacles
+                if (in(obstacle)((i,j)))
+                    valid_point = false
+                    break
+                end
+            end
+            if valid_point
+                push!(valid_points, (i,j))
+            end
+        end
+    end
+    rand(rng, valid_points)
+end
+
+function get_position(arena::AbstractArena{T};rng=Random.default_rng()) where T <: Real
     i,j = get_coordinate(arena;rng=rng)
     get_position(i,j,arena)
 end
 
-function get_position(i::Int64, j::Int64, arena::Arena{T}) where T <: Real
+function get_position(i::Int64, j::Int64, arena::AbstractArena)
     wc = arena.colsize/2
     wr = arena.rowsize/2
     [(i-1)*arena.colsize + wc, (j-1)*arena.rowsize+wr]
@@ -164,7 +201,7 @@ struct NavigationTrial{T<:Real} <: AbstractTrialStruct{T}
     max_num_steps::Int64
     inputs::Vector{Symbol}
     outputs::Vector{Symbol}
-    arena::Arena{T}
+    arena::AbstractArena{T}
     angular_pref::AngularPreference{T}
 end
 
