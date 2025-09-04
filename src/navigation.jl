@@ -330,8 +330,8 @@ function NavigationTrial(min_num_steps::Int64, max_num_steps::Int64, inputs::Vec
 end
     
 # fallback
-function NavigationTrial{T}(min_num_steps::Int64, max_num_steps::Int64, arena::Arena{T}, apref::AngularPreference{T})  where T <: Real
-    NavigationTrial(min_num_steps, max_num_steps, [:view],[:position],arena, apref)
+function NavigationTrial(min_num_steps::Int64, max_num_steps::Int64, arena::AbstractArena{T}, apref::AngularPreference{T})  where T <: Real
+    NavigationTrial{T}(min_num_steps, max_num_steps, [:view],[:position],arena, apref)
 end
 
 get_name(::Type{NavigationTrial{T}}) where T <: Real = :NavigationTrial
