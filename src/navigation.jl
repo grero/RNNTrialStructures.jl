@@ -693,6 +693,12 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     viewf = zeros(T, length(trial.angular_pref.μ),nsteps)
     head_direction = zeros(T, length(trial.angular_pref.μ), nsteps)
     movement = zeros(T,4,nsteps)  # up,down,left,right
+    # the estimate distance from the agent to each of the view points
+    # if we are encoding distance like this, we need a way to indicate unknown distance for points 
+    # not in view
+    # alternatively, fix the number of points for the view (like a fovea) and then encode the distance
+    # for each of these fixed points
+    dist = zeros(T, size(viewf)...)
 
     θ = rand(rng, θf)
     head_direction[:,1] = trial.angular_pref(θ)
