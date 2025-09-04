@@ -962,16 +962,18 @@ function performance(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, 
     Δ = Float32(2π)/length(angular_pref.μ)
     sΔ = abs(sin(Δ))
     err = compute_error(trial, output, output_true)
-    ppq = zero(T)
+    ppq = zeros(T, size(err,1)-1)
+    nnq = fill(0, length(ppq))
     for _err in eachcol(err)
         idx = isfinite.(_err[2:end])
-        _ppq = mean(_err[2:end][idx] .< sΔ)
+        _ppq = _err[2:end][idx] .< sΔ
         if require_fixation
             _ppq *= (_err[1] .< T(0.2))
         end
-        ppq += _ppq
+        ppq .+= _ppq
+        nnq .+= idx
     end
-    ppq /= size(err,2)
+    ppq ./= nnq
 end
 
 get_name(::Type{RandomSequenceTrial{T}}) where T <: Real = :RandomSequenceTrial
