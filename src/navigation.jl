@@ -706,10 +706,10 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     for _θq in θq
         viewf[:,1] .= mean(trial.angular_pref(range(_θq[1], stop=_θq[2],length=10)),dims=2)
     end
-    #for (i,_θ) in enumerate(range(θq[1], stop=θq[2], length=16))
-    #    xq = get_circle_intersection(arena, position[:,1], _θ)
-    #    dist[i,1] = norm(xq - position[:,1])/arena_diam
-    #end
+    for (i,_θ) in enumerate(range(θq[1], stop=θq[2], length=16))
+        xq = get_circle_intersection(arena, position[:,1], _θ)
+        dist[i,1] = norm(xq - position[:,1])/arena_diam
+    end
 
     Δθ = T.([-Δθstep, zero(T), Δθstep])
     for k in 2:nsteps
@@ -735,14 +735,14 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
             viewf[:,k] .+= mean(trial.angular_pref(range(_θq[1], stop=_θq[2],length=10)),dims=2)
         end
         # get the distance
-        #for (i,_θ) in enumerate(range(θq[1], stop=θq[2], length=16))
-        #    xq = get_circle_intersection(arena, position[:,k], _θ)
-        #    dist[i,k] = norm(xq - position[:,k])/arena_diam
-        #end
+        for (i,_θ) in enumerate(range(θq[1], stop=θq[2], length=16))
+            xq = get_circle_intersection(arena, position[:,k], _θ)
+            dist[i,k] = norm(xq - position[:,k])/arena_diam
+        end
     end
     position./=[trial.arena.ncols*trial.arena.colsize, trial.arena.nrows*trial.arena.rowsize]
     position .= 0.8*position .+ 0.05 # rescale from 0.05 to 0.85 to avoid saturation
-    position, head_direction, viewf, movement
+    position, head_direction, viewf, movement, dist
 end
 
 function num_inputs(trialstruct::NavigationTrial)
@@ -758,6 +758,9 @@ function num_inputs(trialstruct::NavigationTrial)
     end
     if :position in trialstruct.inputs
         n += 2
+    end
+    if :distance in trialstruct.inputs
+        n += 16
     end
     n
 end
@@ -776,6 +779,10 @@ function num_outputs(trialstruct::NavigationTrial)
     if :position in trialstruct.outputs
         n += 2
     end
+    if :distance in trialstruct.outputs
+        n += 16
+    end
+    n
 end
 
 function compute_error(trialstruct::NavigationTrial{T}, output::Array{T,3}, output_true::Array{T,3}) where T <: Real
@@ -835,7 +842,7 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
             output = -1*ones(T, noutputs, max_nsteps, ntrials)
             output_mask = zeros(T, noutputs, max_nsteps, ntrials)
             for i in 1:ntrials
-                position, head_direction,viewfield,movement = trial(;rng=rng,Δθstep=Δθstep,fov=fov)
+                position, head_direction,viewfield,movement,dist = trial(;rng=rng,Δθstep=Δθstep,fov=fov)
                 offset = 0
                 if :view in trial.inputs
                     input[offset+1:offset+size(viewfield,1), 1:size(viewfield,2),i]  .= viewfield
@@ -849,6 +856,11 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
                     input[offset+1:offset+size(movement,1), 1:size(movement,2),i]  .= movement
                     offset += size(movement,1)
                 end
+                if :distance in trial.inputs
+                    input[offset+1:offset+size(dist,1), 1:size(dist,2),i]  .= dist 
+                    offset += size(dist,1)
+                end
+
                 offset = 0
                 if :position in trial.outputs
                     output[offset+1:offset+size(position,1), 1:size(position,2),i] .= position
@@ -857,6 +869,10 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
                 if :head_direaction in trial.outputs
                     output[offset+1:offset+size(head_direction,1), 1:size(head_direction,2),i]  .= head_direction
                     offset += size(head_direction,1)
+                end
+                if :distance in trial.outputs
+                    output[offset+1:offset+size(dist,1), 1:size(dist,2),i]  .= dist 
+                    offset += size(dist,1)
                 end
                 output_mask[:,1:size(position,2),i] .= one(T)
             end
