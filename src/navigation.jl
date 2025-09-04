@@ -448,7 +448,7 @@ Thanks to Mistral.ai for helping me sort this one out!
     end
 
     if length(obstructed_angles) > 1
-        sort!(obstructed_angles, by=a->a[1])
+        sort!(obstructed_angles, by=a->a[1],lt=compare_angles)
         obstructed_angles = consolidate_view(obstructed_angles)
     end
     # check if occlusions are covered by other occlusions
