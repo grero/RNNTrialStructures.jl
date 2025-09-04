@@ -106,3 +106,14 @@ end
         @test sig == 0xd423d481
     end
 end
+
+@testset "Navigation" begin
+    arena = RNNTrialStructures.MazeArena(10,10,1.0f0,1.0f0,[[(2,2)],[(4,2)],[(4,4)],[(2,4)]])
+    possible_steps = RNNTrialStructures.check_step(1,2,arena)
+    # an obstacle to our right; we can only move up or down
+    @test possible_steps == [(0,0),(0,1),(0,-1)]
+
+    arena = RNNTrialStructures.MazeArena(10,10,1.0f0,1.0f0,[[(3,3),(4,3),(4,4),(3,4)],[(7,3),(8,3),(8,4),(7,4)],[(7,7),(8,7),(8,8),(7,8)],[(3,7),(4,7),(4,8),(3,8)]])
+    apref = RNNTrialStructures.AngularPreference(collect(range(0.0f0, stop=2.0f0*π, length=16)), 5.0f0, 0.8f0);
+    @test_throws ErrorException("Distance computation is not currently implemented fully for MazeArena") RNNTrialStructures.NavigationTrial(20,50,[:view, :distance], arena, apref)
+end
