@@ -417,8 +417,6 @@ Thanks to Mistral.ai for helping me sort this one out!
 
         a_min,a_max = (T(Inf),T(-Inf))
         # assume polygon, i.e. each successive point is connnected
-        # TODO: We need to care about distance as well, i.e. only process that which is not hidden behind other parts
-        # of the obstale
         angles = T[]
         for (jj,p) in enumerate(obstacle)
             dd,dp,ϕ = project_to_view(pos, θ, p, fov)
