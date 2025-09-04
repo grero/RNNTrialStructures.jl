@@ -347,7 +347,7 @@ function signature(trial::NavigationTrial{T},h=zero(UInt32)) where T <: Real
     h
 end
 
-function get_circle_intersection(arena::Arena{T}, point::Vector{T}, θ::T) where T <: Real
+function get_circle_intersection(arena::AbstractArena{T}, point::Vector{T}, θ::T) where T <: Real
     pos_center = [get_center(arena)...,]
     r = sqrt(sum(pos_center.^2))
     get_circle_intersection(pos_center, r, point, θ)
