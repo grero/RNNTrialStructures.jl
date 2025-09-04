@@ -751,10 +751,7 @@ function matches(trial::MultipleAngleTrial{T}, output::AbstractArray{T,3}, outpu
 end
 
 function readout(trialstruct::MultipleAngleTrial{T}, x::Vector{T}) where T <: Real
-    μ = trialstruct.preference.μ
-    a = sum(x.*cos.(μ))
-    b = sum(x.*sin.(μ))
-    atan(b,a)
+    readout(trialstruct.preference,x)
 end
 
 """
@@ -861,7 +858,14 @@ function get_nsteps(trial::RandomSequenceTrial{T},n::Int64, dt,go_cue_onset=zero
     ns
 end
 
-function get_go_cue_onset(trial::RandomSequenceTrial{T}, n::Int64, dt::T, Δ::Int64) where T <: Real
+function get_trial_duration(trial::RandomSequenceTrial{T}, n::Int64, go_cue_onset=zero(T)) where T <: Real
+    Δ = round(Int64, go_cue_onset)
+    ns = n*(trial.input_duration + trial.delay_duration)
+    ns += n*trial.output_duration + Δ
+    ns
+end
+
+function get_go_cue_onset(trial::RandomSequenceTrial{T}, n::Int64, dt::T, Δ::Int64=0) where T <: Real
     input_dur = round(Int64,trial.input_duration/dt)
     delay_dur = round(Int64, trial.delay_duration/dt)
     n*(input_dur+delay_dur)+1
@@ -871,12 +875,14 @@ function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt
                                                                                     pre_cue_multiplier=one(T),
                                                                                     post_cue_multiplier=one(T),
                                                                                     σ=zero(T),
+                                                                                    reverse_output=false,
                                                                                     rng::AbstractRNG=Random.default_rng()
                                                                                     ) where T <: Real
     # create a hash of the arguments
     # TODO: This is quite clunky
-    args = [(:ntrials, ntrials),(:dt, dt), (:rseed, rseed), (:pre_cue_multiplier, pre_cue_multiplier),(:post_cue_multiplier, post_cue_multiplier), (:σ, σ), (:rng, rng)]
+    args = [(:ntrials, ntrials),(:dt, dt), (:rseed, rseed), (:pre_cue_multiplier, pre_cue_multiplier),(:post_cue_multiplier, post_cue_multiplier), (:σ, σ), (:reverse_output, reverse_output), (:rng, rng)]
     defaults = Dict{Symbol,Any}()
+    defaults[:reverse_output] = false
     h = signature(trialstruct)
     for (k,v) in args
         if !(k in keys(defaults)) || v != defaults[k]
@@ -897,7 +903,8 @@ function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt
             θ = get_trialid(trialstruct, rng)
             nsteps = get_nsteps(trialstruct, length(θ), dt)
             go_cue_onset = get_go_cue_onset(trialstruct, length(θ), dt, 0)
-            _input,_output = trialstruct(θ,zero(T), dt)
+            do_reverse = reverse_output  && (rand(rng) < 0.5)
+            _input,_output = trialstruct(θ,zero(T), dt;reverse_output=do_reverse)
             input[:,1:nsteps,i] .= _input
             output[:,1:nsteps,i] .= _output
             _go_cue_onset = 0
@@ -917,6 +924,12 @@ function compute_error(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}
     sθ = sin.(θ)
     cθ = cos.(θ)
     Δ = Float32(2π)/length(angular_pref.μ)
+    # this is a bit clunky; we could just supply dt
+
+    max_nsteps = size(output,2)
+    max_trial_duration = get_trial_duration(trial, trial.max_seq_length)
+    dt = max_trial_duration/max_nsteps
+    output_dur = round(Int64, trial.output_duration/dt)
     err = fill(T(NaN), trial.max_seq_length+1,size(output_true,3))
     # loop over trials
     for (i,(output_t, output_true_t)) in enumerate(zip(eachslice(output,dims=3), eachslice(output_true,dims=3)))
@@ -927,16 +940,17 @@ function compute_error(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}
         if idx2 === nothing
             idx2 = size(output_t,2)
         else
-            idx2 = idx2 - 1
+            idx2 = idx2-1
         end
-        rr = output_t[:,idx1:idx2]
+        nq = div(idx2-idx1+1,output_dur)
+        rr = dropdims(mean(reshape(output_t[:,idx1:idx2], size(output_t,1), output_dur, nq),dims=2),dims=2)
         sumrr = sum(rr, dims=1)
         θrr = atan.(sum(rr.*sθ,dims=1)./sumrr, sum(rr.*cθ,dims=1)./sumrr)
-        rr_true = output_true_t[:,idx1:idx2]
+        rr_true = dropdims(mean(reshape(output_true_t[:,idx1:idx2], size(output_t,1), output_dur, nq),dims=2),dims=2)
         sumrr_true = sum(rr_true,dims=1)
         θrr_true = atan.(sum(rr_true.*sθ,dims=1)./sumrr_true, sum(rr_true.*cθ,dims=1)./sumrr_true)
         _err = dropdims(sqrt.(sin.(θrr .- θrr_true).^2),dims=1)
-        err[2:idx2-idx1+2,i] .= _err
+        err[2:nq+1,i] .= _err
         # fixation error
         err[1,i] = maximum(output_t[:,1:idx1-1])
     end
@@ -948,16 +962,18 @@ function performance(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, 
     Δ = Float32(2π)/length(angular_pref.μ)
     sΔ = abs(sin(Δ))
     err = compute_error(trial, output, output_true)
-    ppq = zero(T)
+    ppq = zeros(T, size(err,1)-1)
+    nnq = fill(0, length(ppq))
     for _err in eachcol(err)
         idx = isfinite.(_err[2:end])
-        _ppq = mean(_err[2:end][idx] .< sΔ)
+        _ppq = _err[2:end][idx] .< sΔ
         if require_fixation
             _ppq *= (_err[1] .< T(0.2))
         end
-        ppq += _ppq
+        ppq .+= _ppq
+        nnq .+= idx
     end
-    ppq /= size(err,2)
+    ppq ./= nnq
 end
 
 get_name(::Type{RandomSequenceTrial{T}}) where T <: Real = :RandomSequenceTrial
@@ -973,7 +989,21 @@ function signature(trial::RandomSequenceTrial{T},h=zero(UInt32)) where T <: Real
 end
 
 function readout(trialstruct::RandomSequenceTrial{T}, x::Vector{T}) where T <: Real
-    μ = trialstruct.apref.μ
+    readout(trialstruct.apref, x)
+end
+
+function readout(trialstruct::RandomSequenceTrial{T}, x::Matrix{T},window=1) where T <: Real
+    nsteps = size(x,2)
+    nv = div(nsteps,window)
+    θ = zeros(T, nv)
+    for j in 1:nv
+        θ[j] = readout(trialstruct, dropdims(mean(x[:,(j-1)*window+1:j*window],dims=2),dims=2))
+    end
+    θ 
+end
+
+function readout(apref::AngularPreference{T},x::Vector{T}) where T <: Real
+    μ = apref.μ
     a = sum(x.*cos.(μ))
     b = sum(x.*sin.(μ))
     atan(b,a)

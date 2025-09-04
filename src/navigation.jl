@@ -1,14 +1,32 @@
 using LinearAlgebra
 
-struct Arena{T<:Real}
+abstract type AbstractArena{T<:Real} end
+struct Arena{T<:Real} <: AbstractArena{T}
     ncols::Int64
     nrows::Int64
     colsize::T
     rowsize::T
 end
 
+struct MazeArena{T<:Real} <: AbstractArena{T}
+    ncols::Int64
+    nrows::Int64
+    colsize::T
+    rowsize::T
+    obstacles::Vector{Vector{Tuple{Int64,Int64}}} # vector of vector of points defining the borders of the obstacles
+end
+
 function signature(arena::Arena{T},h=zero(UInt32)) where T <: Real
    for q in [arena.ncols, arena.nrows, arena.colsize, arena.rowsize]
+        for ii in q
+            h = crc32c(string(ii), h)
+        end
+    end 
+    h
+end
+
+function signature(arena::MazeArena{T},h=zero(UInt32)) where T <: Real
+   for q in [arena.ncols, arena.nrows, arena.colsize, arena.rowsize, arena.obstacles]
         for ii in q
             h = crc32c(string(ii), h)
         end
@@ -22,12 +40,48 @@ function get_center_position(arena::Arena{T}) where T <: Real
     get_position(i,j,arena)
 end
 
-function get_center(arena::Arena{T}) where T <: Real
+function get_center(arena::AbstractArena)
     w,h = extent(arena)
     w/2,h/2
 end
 
-extent(arena::Arena)  = (arena.ncols*arena.colsize, arena.nrows*arena.rowsize)
+extent(arena::AbstractArena)  = (arena.ncols*arena.colsize, arena.nrows*arena.rowsize)
+
+"""
+Return a path starting from the middel and moving in a spiral outwards
+"""
+function traverse_outwards(arena::Arena{T}) where T <: Real
+    i,j = get_center_position(arena)
+    _path = [(i,j)]
+    step = 1
+    ss = -1
+    ee = extent(arena)
+    while (0 < i <= arena.ncols) && (0 < j <= arena.ncols)
+        stop = false
+        for k in 1:step
+            i += ss 
+            if !(0 < i <= ee[1])
+                stop = true
+            else
+                push!(_path, (i,j))
+            end
+        end
+        if stop
+            break
+        end
+        for k in 1:step
+            j += ss 
+            if !(0 < j <= ee[2])
+                stop = true
+            else
+                push!(_path, (i,j))
+            end
+        end
+        ss = -ss
+        step = step+1
+    end
+    _path
+end
 
 """
 Return possible steps
@@ -49,6 +103,87 @@ function check_step(i::Int64,j::Int64, ncols::Int64, nrows::Int64)
     possible_steps
 end
 
+function check_step(i,j,arena::Arena)
+    check_step(i,j,arena.ncols, arena.nrows)
+end
+
+"""
+    validate_step(i::Int64, j::Int64, Δi::Int64, Δj::Int64, arena::Arena)
+
+Validate the step (i+Δi, j+Δj) in the context of `arena`, returning the validated Δi and Δj.
+
+If a step is not within the bounds of `arena`, the step is set to zero.
+
+juliadoc````
+    julia> arena = Arena(5,5,1.0,1.0)
+    julia> validate_step(1,2, -1, -1, arena)
+    (0,-1) 
+    julia> validate_step(2,1, -1, -1, arena)
+    (-1,0)
+    julia> validate_step(5,2,1,1,arena)
+    (0,1)
+    julia validate_step(2,5,1,1,arena)
+    (1,0)
+````
+"""
+function validate_step(i::Int64, j::Int64, Δi::Int64, Δj::Int64, arena::Arena)
+    Δi = ifelse(0 < i+Δi < arena.ncols, Δi, 0)
+    Δj = ifelse(0 < j+Δj < arena.nrows, Δj, 0)
+    Δi, Δj
+end
+
+function validate_step(i::Int64, j::Int64, vv::Vector{T}, arena::Arena{T}) where T <: Real
+    ss = [-1 1 0 0;
+           0 0 -1 1]
+    (Δi,Δj) = round.(Int64, ss*vv)
+    validate_step(i,j, Δi,Δj, arena)
+end
+
+function check_step(i::Int64, j::Int64, arena::MazeArena{T}) where T <: Real
+    in_any(x) = any([in(obstacle)(x) for obstacle in arena.obstacles]) # array of functions
+    possible_steps = [(0,0)]
+    if (i < arena.ncols) && !(in_any((i+1,j)))
+        push!(possible_steps, (1,0))
+    end
+    if (i > 1) && !(in_any((i-1,j)))
+        push!(possible_steps, (-1,0))
+    end
+    if (j < arena.nrows) && !(in_any((i,j+1)))
+        push!(possible_steps, (0,1))
+    end
+    if (j > 1) && !(in_any((i,j-1)))
+        push!(possible_steps, (0,-1))
+    end
+    possible_steps
+end
+
+function get_obstacle_points(arena::MazeArena{T}) where T <: Real
+    ncols = arena.ncols
+    colsize = arena.colsize
+    rowsize = arena.rowsize
+    nrows = arena.nrows
+
+    points = Vector{Tuple{T,T}}[]
+    for obstacle in arena.obstacles
+        # expand every grid point
+        xmin = minimum([_p[1] for _p in obstacle])
+        ymin = minimum([_p[2] for _p in obstacle])
+        xmax = maximum([_p[1] for _p in obstacle])
+        ymax = maximum([_p[2] for _p in obstacle])
+
+        #lower left
+        p0 = ((xmin-1)*colsize, (ymin-1)*rowsize)
+        # lower right
+        p1 = (xmax*colsize, (ymin-1)*rowsize)
+        # upper right
+        p2 = (xmax*colsize, ymax*rowsize)
+        # upper left
+        p3 = ((xmin-1)*colsize, ymax*rowsize)
+        push!(points, [p0,p1,p2,p3])
+    end
+    points
+end
+
 """
     get_coordinate(i::Int64, j::Int64,arena::Arena{T};Δθ=π/4,rng=Random.default_rng()) where T <: Real
 
@@ -61,8 +196,8 @@ function get_coordinate(i::Int64, j::Int64,arena::Arena{T};Δθ=π/4,rng=Random.
     (i,j)
 end
 
-function get_coordinate(i::Int64, j::Int64,arena::Arena{T},θhd::T;Δθ::T=T(π/4),rng=Random.default_rng(),p_hd=T(0.5)) where T <: Real
-    possible_steps = check_step(i,j,arena.ncols,arena.nrows)
+function get_coordinate(i::Int64, j::Int64,arena::AbstractArena{T},θhd::T;Δθ::T=T(π/4),rng=Random.default_rng(),p_hd=T(0.5)) where T <: Real
+    possible_steps = check_step(i,j,arena)
     nsteps = length(possible_steps)
     #figure out the step most aligned with the current head direction
     dx = [cos(θhd),sin(θhd)]
@@ -95,12 +230,31 @@ function get_coordinate(arena::Arena{T};rng=Random.default_rng()) where T <: Rea
     (i,j)
 end
 
-function get_position(arena::Arena{T};rng=Random.default_rng()) where T <: Real
+function get_coordinate(arena::MazeArena{T};rng=Random.default_rng()) where T <: Real
+    valid_points = Tuple{Int64, Int64}[]
+    for i in 1:arena.ncols
+        for j in 1:arena.nrows
+            valid_point = true
+            for obstacle in arena.obstacles
+                if (in(obstacle)((i,j)))
+                    valid_point = false
+                    break
+                end
+            end
+            if valid_point
+                push!(valid_points, (i,j))
+            end
+        end
+    end
+    rand(rng, valid_points)
+end
+
+function get_position(arena::AbstractArena{T};rng=Random.default_rng()) where T <: Real
     i,j = get_coordinate(arena;rng=rng)
     get_position(i,j,arena)
 end
 
-function get_position(i::Int64, j::Int64, arena::Arena{T}) where T <: Real
+function get_position(i::Int64, j::Int64, arena::AbstractArena)
     wc = arena.colsize/2
     wr = arena.rowsize/2
     [(i-1)*arena.colsize + wc, (j-1)*arena.rowsize+wr]
@@ -164,13 +318,20 @@ struct NavigationTrial{T<:Real} <: AbstractTrialStruct{T}
     max_num_steps::Int64
     inputs::Vector{Symbol}
     outputs::Vector{Symbol}
-    arena::Arena{T}
+    arena::AbstractArena{T}
     angular_pref::AngularPreference{T}
 end
 
+function NavigationTrial(min_num_steps::Int64, max_num_steps::Int64, inputs::Vector{Symbol}, outputs::Vector{Symbol}, arena::MazeArena{T}, angular_pref::AngularPreference{T}) where T <: Real
+    if :distance in outputs || :distance in inputs
+        error("Distance computation is not currently implemented fully for MazeArena")
+    end
+    NavigationTrial{T}(min_num_steps, max_num_steps,inputs, outputs, arena,angular_pref)
+end
+    
 # fallback
-function NavigationTrial{T}(min_num_steps::Int64, max_num_steps::Int64, arena::Arena{T}, apref::AngularPreference{T})  where T <: Real
-    NavigationTrial(min_num_steps, max_num_steps, [:view],[:position],arena, apref)
+function NavigationTrial(min_num_steps::Int64, max_num_steps::Int64, arena::AbstractArena{T}, apref::AngularPreference{T})  where T <: Real
+    NavigationTrial{T}(min_num_steps, max_num_steps, [:view],[:position],arena, apref)
 end
 
 get_name(::Type{NavigationTrial{T}}) where T <: Real = :NavigationTrial
@@ -186,6 +347,12 @@ function signature(trial::NavigationTrial{T},h=zero(UInt32)) where T <: Real
     h
 end
 
+function get_circle_intersection(arena::AbstractArena{T}, point::Vector{T}, θ::T) where T <: Real
+    pos_center = [get_center(arena)...,]
+    r = sqrt(sum(pos_center.^2))
+    get_circle_intersection(pos_center, r, point, θ)
+end
+
 function get_circle_intersection(origin::Vector{T}, r::T, point::Vector{T}, θ::T) where T <: Real
     (a,b) = (cos(θ),sin(θ))
     (x0,y0) = origin
@@ -199,16 +366,46 @@ function get_circle_intersection(origin::Vector{T}, r::T, point::Vector{T}, θ::
     point + t*[a,b]
 end
 
- function get_view(pos::Vector{T}, θ::T, arena::Arena{T};fov::T=T(π/2)) where T <: Real
+ function get_view(pos::Vector{T}, θ::T, arena::Arena{T};kwargs...) where T <: Real
     pos_center = [get_center(arena)...,]
+    get_view(pos, θ, pos_center;kwargs...)
+ end
+
+ function get_view(pos::Vector{T}, θ::T, pos_center;fov::T=T(π/2)) where T <: Real
+    θ1 = θ-fov/2
+    θ2 = θ+fov/2
+    get_view(pos, θ1, θ2, pos_center)
+ end
+
+ function get_view(pos::Vector{T}, θ1::T, θ2::T, pos_center) where T <: Real
     r = sqrt(sum(pos_center.^2))
-    θr = T.([θ-fov/2, θ+fov/2])
     xq = zeros(T,2,2)
-    xq[1,:] = get_circle_intersection(pos_center, r, pos, θr[1])
-    xq[2,:] = get_circle_intersection(pos_center, r, pos, θr[2])
+    xq[1,:] = get_circle_intersection(pos_center, r, pos, θ1)
+    xq[2,:] = get_circle_intersection(pos_center, r, pos, θ2)
     xq .-= pos_center
     θq = atan.(xq[:,2], xq[:,1])
     # make sure we get the smallest range
+    #θq[θq.<0] .+= 2π
+    Qqm1 = extrema(θq)
+    Δ1 = Qqm1[2] - Qqm1[1]
+    θq2 = copy(θq)
+    θq2[θq2.<0] .+= T(2π)
+    Qqm2 = extrema(θq2)
+    Δ2 = Qqm2[2] - Qqm2[1]
+    if Δ1 < Δ2
+        Qqm = Qqm1
+    else
+        Qqm = Qqm2
+    end
+    # if both angles are negative, shift them
+    if all(Qqm .< 0)
+        Qqm = Qqm .+ T(2π)
+    end
+    return [Qqm]
+ end
+
+ function get_smallest_wedge(θ1, θ2)
+    θq = [θ1,θ2]
     Qqm1 = extrema(θq)
     Δ1 = Qqm1[2] - Qqm1[1]
     θq2 = copy(θq)
@@ -216,10 +413,233 @@ end
     Qqm2 = extrema(θq2)
     Δ2 = Qqm2[2] - Qqm2[1]
     if Δ1 < Δ2
-        return Qqm1
+        Qqm = Qqm1
     else
-        return Qqm2
+        Qqm = Qqm2
     end
+    # if both angles are negative, shift them
+    if all(Qqm .< 0)
+        Qqm = Qqm .+ 2π 
+    end
+    return Qqm
+ end
+
+ function find_line_intersection(po, p0, p1)
+    x0,y0 = p0
+    x1,y1 = p1
+    x,y = po
+    a = (x-x0)*(x1-x0) + (y-y0)*(y1-y0)
+    a /= (x1-x0)^2 + (y1-y0)^2
+    a = max(min(a,1),0)
+    (x0 + a*(x1-x0), y0+a*(y1-y0))
+ end
+
+ function find_line_intersection(po, v::Vector{T}, p0, p1) where T <: Real
+    x0,y0 = p0
+    x1,y1 = p1
+    xp,yp = po
+    vx,vy = v
+    if vx > 0
+        a = (yp - y0 + (x0-xp)*vy/vx)/(y1-y0 - (x1-x0)*vy/vx)
+    else
+        a = (xp - x0 + (y0-yp)*vx/vy)/(x1-x0 - (y1-y0)*vx/vy)
+    end
+    a = max(min(a,one(T)),zero(T))
+
+    (x0 + a*(x1-x0), y0 + a*(y1-y0))
+ end
+
+ function project_to_view(pos, θ::T, p, fov::T) where T <: Real
+    vv = [cos(θ), sin(θ)]
+    # orthogonal to line of sight
+    vp = [cos(θ+π/2), sin(θ+π/2)]
+
+    #find the distance by projecting onto vv
+    dd = (p .- pos)'*vv
+    # the the projected plane size at this distance
+    l0 = dd*tan(fov/2)
+    dl = 2*l0
+    dp = (p .- pos)'*vp
+    dd, dp
+    # associate an angle with this
+    ϕ = atan(dp, dd)
+    dd, dp, ϕ
+ end
+
+ shift_angle(θ) = ifelse(θ < 0, θ+2π, θ)
+
+ """
+ Find the smallest angular distance between θ1 and θ2. 
+ 
+ If the angles are separated by more than 180 degree, switch the relationship. 
+ That is if θ1 is π/2 and θ2 is 3π/2+0.1, then we order θ2 before θ1
+representing θ2 as -0.47π
+
+Thanks to Mistral.ai for helping me sort this one out!
+ """
+ function order_angles(θ1::T, θ2::T) where T <: Real
+    d1 = θ1 - θ2
+    if abs(d1) > π
+        if θ2 > θ1
+            θs = θ2-2π
+            θb = θ1
+        else
+            θb = θ2
+            θs = θ1-2π
+        end
+    else
+        if θ2 > θ1
+            θs = θ1
+            θb = θ2
+        else
+            θs = θ2
+            θb = θ1
+        end
+    end
+    θs, θb
+ end
+
+ """
+ Return true if θ1 is ordered before θ2
+ """
+ function compare_angles(θ1::T, θ2::T) where T <: Real
+    d1 = θ1 - θ2
+    res = false
+    if abs(d1) > π
+        if θ2 > θ1
+            res = false
+        else
+            res = true 
+        end
+    else
+        if θ2 > θ1
+            res = true
+        else
+            res = false
+        end
+    end
+    res
+ end
+
+
+ """
+ Merge overlapping views
+ """
+ function consolidate_view(oo::Vector{Tuple{T,T}}) where T <: Real
+    oo2 = [order_angles(oo[1]...)]
+    for oc1 in oo[2:end]
+        merged = false
+        for ooe in oo2
+            if compare_angles(oc1[1], ooe[2])
+                amin = ifelse(compare_angles(ooe[1], oc1[1]), ooe[1], oc1[1])
+                amax = ifelse(compare_angles(oc1[2], ooe[2]), ooe[2], oc1[2])
+                oo2[end] = order_angles(amin,amax)
+                merged = true
+                break
+            end
+        end
+        if !merged
+            push!(oo2, order_angles(oc1...))
+        end
+    end
+    oo2
+ end
+
+ function is_occluded(oo::Vector{Tuple{T,T}}) where T <: Real
+    keep = fill(false, length(oo))
+    for (i,oc2) in enumerate(oo)
+        keep[i] = !is_occluded(oc2, oo[keep])
+    end
+    keep
+ end
+
+ function is_occluded(oc2::Tuple{T,T}, oo::Vector{Tuple{T,T}}) where T <: Real
+    _is_occluded = false
+    for oc1 in oo
+        if oc1 == oc2
+            continue
+        end
+        if oc1[1] < oc2[1] < oc2[2] < oc1[2]
+            # oc2 is contained with oc1; remove it
+            _is_occluded = true
+            break
+        end
+    end
+    _is_occluded
+ end
+
+ function get_view(pos::Vector{T}, θ::T, arena::MazeArena{T};fov::T=T(π/2)) where T <: Real
+    # check if any obstacle is in the view
+    obstructed_angles = Tuple{T,T}[]
+    obstacle_points = get_obstacle_points(arena)
+    pos_center = [get_center(arena)...]
+    for (ii,obstacle) in enumerate(obstacle_points)
+
+        a_min,a_max = (T(Inf),T(-Inf))
+        # assume polygon, i.e. each successive point is connnected
+        angles = T[]
+        for (jj,p) in enumerate(obstacle)
+            dd,dp,ϕ = project_to_view(pos, θ, p, fov)
+            if ϕ < -fov/2
+                ϕ = -fov/2
+            elseif ϕ > fov/2
+                ϕ = fov/2
+            end
+            # we only care about this obstacle if it is in front of the agent
+            if dd > 0
+            #if -fov/2 <= ϕ <= fov/2
+                push!(angles, mod(ϕ + θ,2π))
+            end
+        end
+        if !isempty(angles)
+            angle_min, angle_max = extrema(angles)
+            # convert this to allocentric
+            angle_min, angle_max = first(get_view(pos, angle_min, angle_max, pos_center))
+            angle_min,angle_max = order_angles(angle_min, angle_max)
+        else
+            angle_min, angle_max = (zero(T), zero(T))
+        end
+
+        if angle_min < angle_max
+            push!(obstructed_angles, order_angles(angle_min, angle_max))
+        end
+    end
+
+    if length(obstructed_angles) > 1
+        sort!(obstructed_angles, by=a->a[1],lt=compare_angles)
+        obstructed_angles = consolidate_view(obstructed_angles)
+    end
+  
+    θ12 = get_view(pos,θ,pos_center;fov=fov)
+    # θ12 are in allocentric coordinates
+    θ1,θ2 = first(θ12)
+    θs = [(θ1,θ2)]
+    if length(obstructed_angles) > 0
+        
+        # check if the view is completely blocked
+        for o_angle in obstructed_angles
+            if θ1 ≈ o_angle[1] && o_angle[2] ≈ θ2
+                # single occlusion completely blocking the view
+                return Tuple{T,T}[]
+            end
+        end
+        θs = Tuple{T,T}[]
+        # θ1 forms the minimum. Include an angle from θ1 to the first touch point
+        if compare_angles(θ1, obstructed_angles[1][1])
+        #if θ1 < obstructed_angles[1][1]
+        #if shift_angle(θ1) < shift_angle(obstructed_angles[1][1])
+            push!(θs, order_angles(θ1, obstructed_angles[1][1]))
+        end
+        for (a,b) in zip(1:length(obstructed_angles)-1, 2:length(obstructed_angles))
+            push!(θs, order_angles(obstructed_angles[a][2], obstructed_angles[b][1]))
+        end
+        if compare_angles(obstructed_angles[end][2], θ2)
+        #if θ2 > obstructed_angles[end][2]
+        #if shift_angle(θ2) > shift_angle(obstructed_angles[end][2])
+            push!(θs, order_angles(obstructed_angles[end][2],θ2))
+        end
+    end
+    θs
  end
 
 function get_view_old(pos::Vector{T}, θ::T,arena::Arena{T}) where T <: Real
@@ -263,6 +683,8 @@ end
 
 function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/4), p_stay=T(1/3), p_hd=T(1/4), kwargs...) where T <: Real
     # random initiarange(-T(π), stop=T(π), step=π/4)li
+    arena = trial.arena
+    arena_diam = sqrt(sum(abs2, extent(arena)))
     θf = range(zero(T), stop=T(2π), step=T(π/4))
     nsteps = rand(rng, trial.min_num_steps:trial.max_num_steps)
     position = zeros(T,2,nsteps)
@@ -271,11 +693,23 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     viewf = zeros(T, length(trial.angular_pref.μ),nsteps)
     head_direction = zeros(T, length(trial.angular_pref.μ), nsteps)
     movement = zeros(T,4,nsteps)  # up,down,left,right
+    # the estimate distance from the agent to each of the view points
+    # if we are encoding distance like this, we need a way to indicate unknown distance for points 
+    # not in view
+    # alternatively, fix the number of points for the view (like a fovea) and then encode the distance
+    # for each of these fixed points
+    dist = zeros(T, size(viewf)...)
 
     θ = rand(rng, θf)
     head_direction[:,1] = trial.angular_pref(θ)
     θq = get_view(position[:,1],θ, trial.arena;kwargs...)
-    viewf[:,1] .= mean(trial.angular_pref(range(θq[1], stop=θq[2],length=10)),dims=2)
+    for _θq in θq
+        viewf[:,1] .= mean(trial.angular_pref(range(_θq[1], stop=_θq[2],length=10)),dims=2)
+        for (i,_θ) in enumerate(range(_θq[1], stop=_θq[2], length=16))
+            xq = get_circle_intersection(arena, position[:,1], _θ)
+            dist[i,1] = norm(xq - position[:,1])/arena_diam
+        end
+    end
 
     Δθ = T.([-Δθstep, zero(T), Δθstep])
     for k in 2:nsteps
@@ -297,11 +731,18 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
         head_direction[:,k] = trial.angular_pref(θ)
         # get view angles
         θq = get_view(position[:,k],θ, trial.arena;kwargs...)
-        viewf[:,k] .= mean(trial.angular_pref(range(θq[1], stop=θq[2],length=10)),dims=2)
+        for _θq in θq
+            viewf[:,k] .+= mean(trial.angular_pref(range(_θq[1], stop=_θq[2],length=10)),dims=2)
+            # get the distance
+            for (i,_θ) in enumerate(range(_θq[1], stop=_θq[2], length=16))
+                xq = get_circle_intersection(arena, position[:,k], _θ)
+                dist[i,k] = norm(xq - position[:,k])/arena_diam
+            end
+        end
     end
     position./=[trial.arena.ncols*trial.arena.colsize, trial.arena.nrows*trial.arena.rowsize]
     position .= 0.8*position .+ 0.05 # rescale from 0.05 to 0.85 to avoid saturation
-    position, head_direction, viewf, movement
+    position, head_direction, viewf, movement, dist
 end
 
 function num_inputs(trialstruct::NavigationTrial)
@@ -317,6 +758,9 @@ function num_inputs(trialstruct::NavigationTrial)
     end
     if :position in trialstruct.inputs
         n += 2
+    end
+    if :distance in trialstruct.inputs
+        n += 16
     end
     n
 end
@@ -335,6 +779,10 @@ function num_outputs(trialstruct::NavigationTrial)
     if :position in trialstruct.outputs
         n += 2
     end
+    if :distance in trialstruct.outputs
+        n += 16
+    end
+    n
 end
 
 function compute_error(trialstruct::NavigationTrial{T}, output::Array{T,3}, output_true::Array{T,3}) where T <: Real
@@ -345,7 +793,7 @@ function compute_error(trialstruct::NavigationTrial{T}, output::Array{T,3}, outp
         # find the sequence length
         idxc = findfirst(output_true_t .> T(0.05))
         idx1 = idxc.I[2]
-        idx2 = findfirst(dropdims(sum(output_true_t,dims=1),dims=1) .== zero(T))
+        idx2 = findfirst(dropdims(sum(output_true_t,dims=1),dims=1) .<= zero(T))
         if idx2 === nothing
             idx2 = size(output_t,2)
         else
@@ -390,11 +838,11 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
     max_nsteps = trial.max_num_steps
     TrialIterator(
         function data_provider()
-            input = zeros(T, ninputs, max_nsteps, ntrials)
-            output = zeros(T, noutputs, max_nsteps, ntrials)
+            input = -1*ones(T, ninputs, max_nsteps, ntrials)
+            output = -1*ones(T, noutputs, max_nsteps, ntrials)
             output_mask = zeros(T, noutputs, max_nsteps, ntrials)
             for i in 1:ntrials
-                position, head_direction,viewfield,movement = trial(;rng=rng,Δθstep=Δθstep,fov=fov)
+                position, head_direction,viewfield,movement,dist = trial(;rng=rng,Δθstep=Δθstep,fov=fov)
                 offset = 0
                 if :view in trial.inputs
                     input[offset+1:offset+size(viewfield,1), 1:size(viewfield,2),i]  .= viewfield
@@ -408,6 +856,11 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
                     input[offset+1:offset+size(movement,1), 1:size(movement,2),i]  .= movement
                     offset += size(movement,1)
                 end
+                if :distance in trial.inputs
+                    input[offset+1:offset+size(dist,1), 1:size(dist,2),i]  .= dist 
+                    offset += size(dist,1)
+                end
+
                 offset = 0
                 if :position in trial.outputs
                     output[offset+1:offset+size(position,1), 1:size(position,2),i] .= position
@@ -416,6 +869,10 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
                 if :head_direaction in trial.outputs
                     output[offset+1:offset+size(head_direction,1), 1:size(head_direction,2),i]  .= head_direction
                     offset += size(head_direction,1)
+                end
+                if :distance in trial.outputs
+                    output[offset+1:offset+size(dist,1), 1:size(dist,2),i]  .= dist 
+                    offset += size(dist,1)
                 end
                 output_mask[:,1:size(position,2),i] .= one(T)
             end
