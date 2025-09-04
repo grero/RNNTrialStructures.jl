@@ -45,7 +45,43 @@ function get_center(arena::AbstractArena)
     w/2,h/2
 end
 
-extent(arena::Arena)  = (arena.ncols*arena.colsize, arena.nrows*arena.rowsize)
+extent(arena::AbstractArena)  = (arena.ncols*arena.colsize, arena.nrows*arena.rowsize)
+
+"""
+Return a path starting from the middel and moving in a spiral outwards
+"""
+function traverse_outwards(arena::Arena{T}) where T <: Real
+    i,j = get_center_position(arena)
+    _path = [(i,j)]
+    step = 1
+    ss = -1
+    ee = extent(arena)
+    while (0 < i <= arena.ncols) && (0 < j <= arena.ncols)
+        stop = false
+        for k in 1:step
+            i += ss 
+            if !(0 < i <= ee[1])
+                stop = true
+            else
+                push!(_path, (i,j))
+            end
+        end
+        if stop
+            break
+        end
+        for k in 1:step
+            j += ss 
+            if !(0 < j <= ee[2])
+                stop = true
+            else
+                push!(_path, (i,j))
+            end
+        end
+        ss = -ss
+        step = step+1
+    end
+    _path
+end
 
 """
 Return possible steps
