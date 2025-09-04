@@ -306,6 +306,62 @@ end
     dd, dp, ϕ
  end
 
+ shift_angle(θ) = ifelse(θ < 0, θ+2π, θ)
+
+ """
+ Find the smallest angular distance between θ1 and θ2. 
+ 
+ If the angles are separated by more than 180 degree, switch the relationship. 
+ That is if θ1 is π/2 and θ2 is 3π/2+0.1, then we order θ2 before θ1
+representing θ2 as -0.47π
+
+Thanks to Mistral.ai for helping me sort this one out!
+ """
+ function order_angles(θ1::T, θ2::T) where T <: Real
+    d1 = θ1 - θ2
+    if abs(d1) > π
+        if θ2 > θ1
+            θs = θ2-2π
+            θb = θ1
+        else
+            θb = θ2
+            θs = θ1-2π
+        end
+    else
+        if θ2 > θ1
+            θs = θ1
+            θb = θ2
+        else
+            θs = θ2
+            θb = θ1
+        end
+    end
+    θs, θb
+ end
+
+ """
+ Return true if θ1 is ordered before θ2
+ """
+ function compare_angles(θ1::T, θ2::T) where T <: Real
+    d1 = θ1 - θ2
+    res = false
+    if abs(d1) > π
+        if θ2 > θ1
+            res = false
+        else
+            res = true 
+        end
+    else
+        if θ2 > θ1
+            res = true
+        else
+            res = false
+        end
+    end
+    res
+ end
+
+
  """
  Merge overlapping views
  """
