@@ -617,6 +617,10 @@ function get_nsteps(trial::MultipleAngleTrial{T},n::Int64, dt,go_cue_onset=zero(
     tdim
 end
 
+function get_go_cue_onset(trial::MultipleAngleTrial{T},n::Int64, dt,go_cue_onset=zero(T)) where T <: Real
+    trial.response_onset[end] + round(Int64, go_cue_onset/dt)
+end
+
 function (trial::MultipleAngleTrial{T})(θ::Vector{T},go_cue_onset::Int64=0, stim_onset::Vector{Int64}=zeros(Int64, trial.nangles)) where T <: Real
     nt = length(θ)
     nn = length(trial.preference.μ)
