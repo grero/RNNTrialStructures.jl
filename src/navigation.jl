@@ -526,23 +526,42 @@ Thanks to Mistral.ai for helping me sort this one out!
  Merge overlapping views
  """
  function consolidate_view(oo::Vector{Tuple{T,T}}) where T <: Real
-    oo2 = [order_angles(oo[1]...)]
-    for oc1 in oo[2:end]
+    _oo,_ii = order_angles(oo[1]...)
+    oo2 = [_oo]
+    ii = [((1,_ii[1]),(1,_ii[2]))]
+    for (i1,oc1) in enumerate(oo[2:end])
         merged = false
-        for ooe in oo2
+        for (i2,ooe) in enumerate(oo2)
             if compare_angles(oc1[1], ooe[2])
-                amin = ifelse(compare_angles(ooe[1], oc1[1]), ooe[1], oc1[1])
-                amax = ifelse(compare_angles(oc1[2], ooe[2]), ooe[2], oc1[2])
-                oo2[end] = order_angles(amin,amax)
+                amin,i_min = ifelse(compare_angles(ooe[1], oc1[1]), (ooe[1],i2), (oc1[1],i1+1))
+                amax,i_max = ifelse(compare_angles(oc1[2], ooe[2]), (ooe[2],i2), (oc1[2],i1+1))
+                oo2[end],jk = order_angles(amin,amax)
+                ii[end]  = ((i_min,jk[1]), (i_max,jk[2]))
                 merged = true
                 break
             end
         end
         if !merged
-            push!(oo2, order_angles(oc1...))
+            _oo,_ii = order_angles(oc1...)
+            push!(oo2, _oo)
+            push!(ii, ((i1+1,_ii[1]), (i1+1,_ii[2])))
         end
     end
-    oo2
+    oo2,ii
+ end
+
+ function find_closest_neighbour(points::Vector{Tuple{T,T}}, idx::Int64, pos::Union{Tuple{T,T},Vector{T}}, θ::T,fov::T) where T <: Real
+    nn = length(points)
+    j1 = mod(idx,nn)+1
+    _, dp1,_ = project_to_view(pos, θ, points[j1], fov)
+    j2 = mod(idx-2,nn)+1
+    _, dp2,_ = project_to_view(pos, θ, points[j2], fov)
+    if abs(dp1)  < abs(dp2)
+        p1 = points[j1]
+    else
+        p1 = points[j2] 
+    end
+    p1
  end
 
  function is_occluded(oo::Vector{Tuple{T,T}}) where T <: Real
@@ -571,6 +590,8 @@ Thanks to Mistral.ai for helping me sort this one out!
  function get_view(pos::Vector{T}, θ::T, arena::MazeArena{T};fov::T=T(π/2)) where T <: Real
     # check if any obstacle is in the view
     obstructed_angles = Tuple{T,T}[]
+    #obstructed_points = Tuple{Tuple{T,T}, Tuple{T,T}}[]
+    obstructed_points = Tuple{T,T}[]
     obstacle_points = get_obstacle_points(arena)
     pos_center = [get_center(arena)...]
     for (ii,obstacle) in enumerate(obstacle_points)
@@ -578,36 +599,72 @@ Thanks to Mistral.ai for helping me sort this one out!
         a_min,a_max = (T(Inf),T(-Inf))
         # assume polygon, i.e. each successive point is connnected
         angles = T[]
+        points = Tuple{T,T}[]
+        # TODO: Assign view bins to each pillar
         for (jj,p) in enumerate(obstacle)
             dd,dp,ϕ = project_to_view(pos, θ, p, fov)
+            dq = norm(pos .- p)
+            if dd < 0
+                continue
+            end
+            valid = false 
             if ϕ < -fov/2
                 ϕ = -fov/2
+                v = [cos(θ+ϕ), sin(θ+ϕ)]
+                # need to find the point
+                p1 = find_closest_neighbour(obstacle, jj, pos, θ, fov)
+                pp = find_line_intersection(pos, v, p, p1)
+                # make sure we are somewhere on the line
+                if (p < pp < p1) || (p1 < pp < p)
+                    valid = true
+                end
             elseif ϕ > fov/2
                 ϕ = fov/2
+                v = [cos(θ+ϕ), sin(θ+ϕ)]
+                p1 = find_closest_neighbour(obstacle, jj, pos, θ, fov)
+                pp = find_line_intersection(pos, v, p, p1)
+                if (p < pp < p1) || (p1 < pp < p)
+                    valid = true
+                end
+                # need to find the point
+            else
+                pp = p
+                valid = true
             end
+
+            # what part of the obstacle does this correspond to?
+
             # we only care about this obstacle if it is in front of the agent
-            if dd > 0
-            #if -fov/2 <= ϕ <= fov/2
-                push!(angles, mod(ϕ + θ,2π))
+            push!(angles, mod(ϕ + θ,2π))
+            if valid
+                push!(points, pp)
             end
         end
         if !isempty(angles)
-            angle_min, angle_max = extrema(angles)
+            angle_min, i_min = findmin(angles)
+            angle_max, i_max = findmax(angles)
             # convert this to allocentric
             angle_min, angle_max = first(get_view(pos, angle_min, angle_max, pos_center))
-            angle_min,angle_max = order_angles(angle_min, angle_max)
+            (angle_min,angle_max),i12 = order_angles(angle_min, angle_max)
+            i_min,i_max = [i_min,i_max][[i12...]]
         else
             angle_min, angle_max = (zero(T), zero(T))
+            i_min,i_max = (0,0)
         end
-
+        append!(obstructed_points, points)
         if angle_min < angle_max
-            push!(obstructed_angles, order_angles(angle_min, angle_max))
+            #angle_min, angle_max, i12 = order_angles(angle_min, angle_max)
+            push!(obstructed_angles, (angle_min, angle_max))
+            #push!(obstructed_points, (points[i_min], points[i_max]))
         end
     end
-
+    ocid = Vector{Int64}[]
     if length(obstructed_angles) > 1
         sort!(obstructed_angles, by=a->a[1],lt=compare_angles)
-        obstructed_angles = consolidate_view(obstructed_angles)
+        obstructed_angles,ocid = consolidate_view(obstructed_angles)
+        # also re-arrange the points
+        #obstructed_points = [(obstructed_points[i1][j1], obstructed_points[i2][j2]) for ((i1,j1),(i2,j2)) in ocid]
+        # the obstructed points should now contain the points in front. i.e. no obscured by other occlusions
     end
   
     θ12 = get_view(pos,θ,pos_center;fov=fov)
