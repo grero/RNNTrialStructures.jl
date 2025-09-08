@@ -587,6 +587,49 @@ Thanks to Mistral.ai for helping me sort this one out!
     _is_occluded
  end
 
+ """
+    is_occluded(point::Tuple{T,T}, points::Vector{Tuple{T,T}}, pos::Union{Tuple{T,T},Vector{T}}, θ::T) where T <: Real
+
+Return true if `point` is occluded by at least one edge formed by neighbouring `points` from the perspective of `pos`
+with view direction `θ`.
+ """
+ function is_occluded(point::Tuple{T,T}, points::Vector{Tuple{T,T}}, pos::Union{Tuple{T,T},Vector{T}}, θ::T) where T <: Real
+    np = length(points)
+    v = [cos(θ),sin(θ)]
+    #check whether a point if behind any edge
+    occluded = false
+    d = point .- pos
+    dnn = [(d./norm(d))...]
+    for (i1,i2) in zip(circshift(1:np,1), 1:np)
+        p1 = points[i1]
+        p2 = points[i2]
+        m = points[i2] .- points[i1]
+        m = m./norm(m)
+        # check if point is on this line
+        dv = point .- p1
+        dv = dv./norm(dv)
+        mq = dv[1]*m[1] + dv[2]*m[2] 
+        if mq ≈ 1.0f0 
+            continue
+        end
+        ϕ = atan(m[2],m[1])
+        n = [cos(ϕ-T(π/2)), sin(ϕ -T(π/2))]
+        # project onto normal vector
+        dq = d[1]*n[1] + d[2]*n[2]
+        # find the intersection
+        pp = find_line_intersection(pos, dnn, p1,p2)
+        dn = pp .- pos
+        dpn = dn[1]*n[1] + dn[2]*n[2]
+        if (p1 <= pp <= p2) || (p2 <= pp <= p1)
+            if abs(dq) > abs(dpn)
+                occluded = true
+                break
+            end
+        end
+    end
+    occluded
+ end
+
  function get_view(pos::Vector{T}, θ::T, arena::MazeArena{T};fov::T=T(π/2)) where T <: Real
     # check if any obstacle is in the view
     obstructed_angles = Tuple{T,T}[]
