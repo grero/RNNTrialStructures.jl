@@ -876,6 +876,18 @@ function get_go_cue_onset(trial::RandomSequenceTrial{T}, n::Int64, dt::T, Δ::In
     n*(input_dur+delay_dur)+1
 end
 
+function get_input_onset(trial::RandomSequenceTrial{T}, idx::Int64, dt::T) where T <: Real
+    input_dur = round(Int64,trial.input_duration/dt)
+    delay_dur = round(Int64, trial.delay_duration/dt)
+    (idx-1)*(input_dur + delay_dur)+1
+end
+
+function get_response_onset(trial::RandomSequenceTrial{T}, n::Int64, idx::Int64, dt::T) where T <: Real
+    go_cue_onset = get_go_cue_onset(trial, n, dt)
+    output_dur = round(Int64, trial.output_duration/dt)
+    go_cue_onset + (idx-1)*output_dur
+end
+
 function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt::T;rseed::UInt32=UInt32(1234),
                                                                                     pre_cue_multiplier=one(T),
                                                                                     post_cue_multiplier=one(T),
