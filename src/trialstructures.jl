@@ -788,7 +788,7 @@ end
 
 RandomSequenceTrial(apref::AngularPreference{T}) where T <: Real = RandomSequenceTrial(T(20.0), zero(T), T(20.0), T(20.0), 2,9, apref)
 
-num_inputs(trialstruct::RandomSequenceTrial) = length(trialstruct.apref.μ) + 1
+num_inputs(trialstruct::RandomSequenceTrial) = length(trialstruct.apref.μ) + 2 # one cue for normal, one for reverse
 num_outputs(trialstruct::RandomSequenceTrial) = length(trialstruct.apref.μ)
 
 function get_trialid(trialstruct::RandomSequenceTrial{T},rng::AbstractRNG=Random.default_rng()) where T <: Real
