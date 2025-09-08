@@ -828,7 +828,8 @@ function (trial::RandomSequenceTrial{T})(θ::Vector{T},go_cue_onset::T, dt::T;re
     output_dur = round(Int64,trial.output_duration/dt)
     # n delays for n inputs
     nsteps = n*(input_dur + delay_dur) + n*output_dur
-    input = zeros(T,nq+1, nsteps)
+    input = zeros(T,nq+2, nsteps)
+    # TODO: Need another input for reversal
     output = fill(T(0.05), nq, nsteps)
     for i in 1:n
         offset = (i-1)*(input_dur+delay_dur)
@@ -843,7 +844,11 @@ function (trial::RandomSequenceTrial{T})(θ::Vector{T},go_cue_onset::T, dt::T;re
     end
     # go_cue
     offset = n*(input_dur+delay_dur)
-    input[end,offset+1:offset+go_cue_dur] .= one(T)
+    if reverse_output
+        input[end,offset+1:offset+go_cue_dur] .= one(T)
+    else
+        input[end-1,offset+1:offset+go_cue_dur] .= one(T)
+    end
 
     input,output 
 end
