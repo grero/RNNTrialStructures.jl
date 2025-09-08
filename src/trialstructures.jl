@@ -617,6 +617,10 @@ function get_nsteps(trial::MultipleAngleTrial{T},n::Int64, dt,go_cue_onset=zero(
     tdim
 end
 
+function get_go_cue_onset(trial::MultipleAngleTrial{T},n::Int64, dt,go_cue_onset=zero(T)) where T <: Real
+    trial.response_onset[end] + round(Int64, go_cue_onset/dt)
+end
+
 function (trial::MultipleAngleTrial{T})(θ::Vector{T},go_cue_onset::Int64=0, stim_onset::Vector{Int64}=zeros(Int64, trial.nangles)) where T <: Real
     nt = length(θ)
     nn = length(trial.preference.μ)
@@ -788,7 +792,7 @@ end
 
 RandomSequenceTrial(apref::AngularPreference{T}) where T <: Real = RandomSequenceTrial(T(20.0), zero(T), T(20.0), T(20.0), 2,9, apref)
 
-num_inputs(trialstruct::RandomSequenceTrial) = length(trialstruct.apref.μ) + 1
+num_inputs(trialstruct::RandomSequenceTrial) = length(trialstruct.apref.μ) + 2 # one cue for normal, one for reverse
 num_outputs(trialstruct::RandomSequenceTrial) = length(trialstruct.apref.μ)
 
 function get_trialid(trialstruct::RandomSequenceTrial{T},rng::AbstractRNG=Random.default_rng()) where T <: Real
@@ -828,7 +832,8 @@ function (trial::RandomSequenceTrial{T})(θ::Vector{T},go_cue_onset::T, dt::T;re
     output_dur = round(Int64,trial.output_duration/dt)
     # n delays for n inputs
     nsteps = n*(input_dur + delay_dur) + n*output_dur
-    input = zeros(T,nq+1, nsteps)
+    input = zeros(T,nq+2, nsteps)
+    # TODO: Need another input for reversal
     output = fill(T(0.05), nq, nsteps)
     for i in 1:n
         offset = (i-1)*(input_dur+delay_dur)
@@ -843,7 +848,11 @@ function (trial::RandomSequenceTrial{T})(θ::Vector{T},go_cue_onset::T, dt::T;re
     end
     # go_cue
     offset = n*(input_dur+delay_dur)
-    input[end,offset+1:offset+go_cue_dur] .= one(T)
+    if reverse_output
+        input[end,offset+1:offset+go_cue_dur] .= one(T)
+    else
+        input[end-1,offset+1:offset+go_cue_dur] .= one(T)
+    end
 
     input,output 
 end
@@ -869,6 +878,18 @@ function get_go_cue_onset(trial::RandomSequenceTrial{T}, n::Int64, dt::T, Δ::In
     input_dur = round(Int64,trial.input_duration/dt)
     delay_dur = round(Int64, trial.delay_duration/dt)
     n*(input_dur+delay_dur)+1
+end
+
+function get_input_onset(trial::RandomSequenceTrial{T}, idx::Int64, dt::T) where T <: Real
+    input_dur = round(Int64,trial.input_duration/dt)
+    delay_dur = round(Int64, trial.delay_duration/dt)
+    (idx-1)*(input_dur + delay_dur)+1
+end
+
+function get_response_onset(trial::RandomSequenceTrial{T}, n::Int64, idx::Int64, dt::T) where T <: Real
+    go_cue_onset = get_go_cue_onset(trial, n, dt)
+    output_dur = round(Int64, trial.output_duration/dt)
+    go_cue_onset + (idx-1)*output_dur
 end
 
 function generate_trials(trialstruct::RandomSequenceTrial{T}, ntrials::Int64, dt::T;rseed::UInt32=UInt32(1234),
