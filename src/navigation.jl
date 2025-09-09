@@ -647,6 +647,7 @@ with view direction `θ`.
     obstructed_angles = Tuple{T,T}[]
     #obstructed_points = Tuple{Tuple{T,T}, Tuple{T,T}}[]
     obstructed_points = Tuple{T,T}[]
+    obstructed_obstacle = Int64[]
     obstacle_points = get_obstacle_points(arena)
     pos_center = [get_center(arena)...]
     for (ii,obstacle) in enumerate(obstacle_points)
@@ -707,10 +708,26 @@ with view direction `θ`.
             i_min,i_max = (0,0)
         end
         append!(obstructed_points, points)
+        append!(obstructed_obstacle, fill(ii, length(points)))
         if angle_min < angle_max
             #angle_min, angle_max, i12 = order_angles(angle_min, angle_max)
             push!(obstructed_angles, (angle_min, angle_max))
             #push!(obstructed_points, (points[i_min], points[i_max]))
+        end
+    end
+    # filter out obstructed points
+    obstructed_points_filtered = Tuple{T,T}[]
+    candidate_obstacles =  unique(obstructed_obstacle)
+    for (pp,iq) in zip(obstructed_points, obstructed_obstacle)
+        _is_obstructed = false
+        for jq in candidate_obstacles
+            _is_obstructed = is_occluded(pp, obstacle_points[jq], pos, θ)
+            if _is_obstructed
+                break
+            end
+        end
+        if !_is_obstructed
+            push!(obstructed_points_filtered, pp)
         end
     end
     ocid = Vector{Int64}[]
@@ -751,7 +768,7 @@ with view direction `θ`.
             push!(θs, order_angles(obstructed_angles[end][2],θ2)[1])
         end
     end
-    θs
+    θs, obstructed_points_filtered
  end
 
 function get_view_old(pos::Vector{T}, θ::T,arena::Arena{T}) where T <: Real
