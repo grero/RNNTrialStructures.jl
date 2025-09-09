@@ -444,9 +444,12 @@ end
     else
         a = (xp - x0 + (y0-yp)*vx/vy)/(x1-x0 - (y1-y0)*vx/vy)
     end
-    a = max(min(a,one(T)),zero(T))
+    Δx = a*(x1-x0)
+    Δy = a*(y1-y0)
 
-    (x0 + a*(x1-x0), y0 + a*(y1-y0))
+    #a = max(min(a,one(T)),zero(T))
+
+    (x0 + Δx, y0 + Δy)
  end
 
  function project_to_view(pos, θ::T, p, fov::T) where T <: Real
