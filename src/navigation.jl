@@ -740,15 +740,15 @@ with view direction `θ`.
         if compare_angles(θ1, obstructed_angles[1][1])
         #if θ1 < obstructed_angles[1][1]
         #if shift_angle(θ1) < shift_angle(obstructed_angles[1][1])
-            push!(θs, order_angles(θ1, obstructed_angles[1][1]))
+            push!(θs, order_angles(θ1, obstructed_angles[1][1])[1])
         end
         for (a,b) in zip(1:length(obstructed_angles)-1, 2:length(obstructed_angles))
-            push!(θs, order_angles(obstructed_angles[a][2], obstructed_angles[b][1]))
+            push!(θs, order_angles(obstructed_angles[a][2], obstructed_angles[b][1])[1])
         end
         if compare_angles(obstructed_angles[end][2], θ2)
         #if θ2 > obstructed_angles[end][2]
         #if shift_angle(θ2) > shift_angle(obstructed_angles[end][2])
-            push!(θs, order_angles(obstructed_angles[end][2],θ2))
+            push!(θs, order_angles(obstructed_angles[end][2],θ2)[1])
         end
     end
     θs
