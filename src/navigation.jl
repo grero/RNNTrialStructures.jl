@@ -479,24 +479,33 @@ Thanks to Mistral.ai for helping me sort this one out!
  """
  function order_angles(θ1::T, θ2::T) where T <: Real
     d1 = θ1 - θ2
+    i1,i2 = (0,0)
     if abs(d1) > π
         if θ2 > θ1
             θs = θ2-2π
             θb = θ1
+            i1 = 2
+            i2 = 1
         else
             θb = θ2
             θs = θ1-2π
+            i2 = 2
+            i1 = 1
         end
     else
         if θ2 > θ1
             θs = θ1
             θb = θ2
+            i1 = 1
+            i2 = 2
         else
             θs = θ2
             θb = θ1
+            i1 = 2
+            i2 = 1
         end
     end
-    θs, θb
+    (θs, θb), (i1,i2)
  end
 
  """
