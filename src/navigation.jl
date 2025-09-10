@@ -642,6 +642,60 @@ with view direction `θ`.
     occluded
  end
 
+ function get_obstacle_intersection(pos::Vector{T}, θ::T, arena::MazeArena{T},θ0::T, fov::T) where T <: Real
+    obstacle_points = get_obstacle_points(arena)
+    pp = (T(NaN), T(NaN)) 
+    d_min = Inf
+    for points in obstacle_points
+        _pp, _dm = get_intersection(pos, θ, points, θ0,fov)
+        if _dm < d_min
+            pp = _pp
+            d_min = _dm
+        end
+    end
+    pp, d_min
+ end
+
+ function get_obstacle_intersection(pos::Vector{T}, θ::T, arena::Arena{T},θ0::T,fov::T) where T <: Real
+    return (T(NaN), T(NaN)), T(Inf)
+ end
+ 
+ """
+ Find the first point where a ray from `pos` along `θ` intersects with the polygon represntedy by `points`
+ """
+ function get_intersection(pos::Vector{T}, θ::T, points::Vector{Tuple{T,T}}, θ0::T,fov::T) where T <: Real
+    np = length(points)
+    v = [cos(θ),sin(θ)]
+    # loop through each edge
+    d_min = T(Inf)
+    pp = (T(NaN), T(NaN))
+    for (i1,i2) in zip(circshift(1:np,1), 1:np)
+        p1 = points[i1]
+        p2 = points[i2] 
+        # make sure that at least point is within the cone
+        
+        _pp = find_line_intersection(pos, v, p1,p2)
+        _dpp = _pp .- pos
+        _dpp = _dpp./norm(_dpp)
+        # we need the angle between _dpp and v
+        # ϕ is in allocentric coordinates, θ
+        #ϕ = atan(_dpp[2],_dpp[1])
+        cosϕ = _dpp[1]*v[1] + _dpp[2]*v[2]
+        vq = cosϕ > cos(fov/2)
+        #vq = compare_angles(θ0-fov/2, ϕ) && compare_angles(ϕ, θ0+fov/2)
+        _qpp = _dpp[1]*v[1] + _dpp[2]*v[2]
+        # use only valid points, i.e. points actually on the edge
+        if vq && ((p1 < _pp < p2) || (p2 < _pp < p1))
+            d = norm(_pp .- pos)
+            if d < d_min
+                d_min = d
+                pp = _pp
+            end
+        end
+    end
+    pp, d_min
+ end
+
  function get_view(pos::Vector{T}, θ::T, arena::MazeArena{T};fov::T=T(π/2)) where T <: Real
     # check if any obstacle is in the view
     obstructed_angles = Tuple{T,T}[]
