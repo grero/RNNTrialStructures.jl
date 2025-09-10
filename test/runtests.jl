@@ -4,27 +4,32 @@ using StableRNGs
 using Test
 
 @testset "NavigationUtils" begin
-    θ1,θ2=RNNTrialStructures.order_angles(0.4268554, -0.25289375)
+    (θ1,θ2),(i,j) = RNNTrialStructures.order_angles(0.4268554, -0.25289375)
     @test θ2 ≈ 0.4268554 
     @test θ1 ≈ -0.25289375
+    @test i == 2
+    @test j == 1
 
-    θ1,θ2=RNNTrialStructures.order_angles( 6.061203f0,0.36774418f0)
+    (θ1,θ2),(i,j) = RNNTrialStructures.order_angles( 6.061203f0,0.36774418f0)
     @test θ1 ≈ -0.22198230424989873
     @test θ2 ≈ 0.36774418f0
+    @test i == 1
+    @test j == 2
 
     # non-overlapping
     obstructed_angles = Tuple{Float32, Float32}[(0.7873215, 1.3179023), (1.7504921, 2.483581)]
     oo,ii = RNNTrialStructures.consolidate_view(obstructed_angles)
-    @test oo[1] ≈ obstructed_angles[1]
-    @test oo[2] ≈ obstructed_angles[2]
-    @test ii == [[1],[2]]
+    @test all(oo[1] .≈ obstructed_angles[1])
+    @test all(oo[2] .≈ obstructed_angles[2])
+    @test ii[1] == ((1,1),(1,2)) 
+    @test ii[2] == ((2,1),(2,2))
 
     # overlapping
     obstructed_angles = Tuple{Float32, Float32}[(0.7873215, 1.8179023), (1.7504921, 2.483581)]
     oo,ii = RNNTrialStructures.consolidate_view(obstructed_angles)
     @test length(oo) == 1
-    @test oo[1] ≈ (0.7873215f0, 2.483581f0)
-    @test ii[1] = [1,2]
+    @test all(oo[1] .≈ (0.7873215f0, 2.483581f0))
+    @test ii[1] == ((1,1),(2,2))
 
 end
 @testset "Place cells" begin
@@ -114,7 +119,7 @@ end
         @test size(x,2) == size(y,2) == size(w,2) ==  nsteps
         @test size(x,3) == size(y,3) == size(w,3) == 256
         pp = RNNTrialStructures.performance(trialstruct, y, y)
-        @test pp ≈ 1.0f0
+        @test pp[1] ≈ 1.0f0
 
         @test RNNTrialStructures.get_name(trialstruct) == :RandomSequenceTrial
         sig = RNNTrialStructures.signature(trialstruct)
@@ -131,17 +136,17 @@ end
     arena = RNNTrialStructures.MazeArena(10,10,1.0f0,1.0f0,[[(3,3),(4,3),(4,4),(3,4)],[(7,3),(8,3),(8,4),(7,4)],[(7,7),(8,7),(8,8),(7,8)],[(3,7),(4,7),(4,8),(3,8)]])
     apref = RNNTrialStructures.AngularPreference(collect(range(0.0f0, stop=2.0f0*π, length=16)), 5.0f0, 0.8f0);
 
-    pp, dp = RNNTrialStructures.get_obstacle_intersection([1.5f0, 4.5f0], 1.0471976f0-Float32(π/3)/2, arena, 1.0471976f0, Float32(π/3))
-    @test pp ≈ (6.0f0, 7.0980763f0)
-    @test dp ≈ 5.1961527f0
+    pp, dp = RNNTrialStructures.get_obstacle_intersection([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], arena, 1.0471976f0, Float32(π/3))
+    @test all(pp[1] .≈ (6.0f0, 7.0980763f0))
+    @test dp[1] ≈ 5.1961527f0
 
     obstacle_points = RNNTrialStructures.get_obstacle_points(arena)
     res = RNNTrialStructures.inview(obstacle_points[4], [1.5f0, 4.5f0], 1.0471976f0, Float32(π/3))
     @test res == ones(Bool, 4)
 
     res = RNNTrialStructures.inview(obstacle_points[3], [1.5f0, 4.5f0], 1.0471976f0, Float32(π/3))
-    @test res = [false, false, false, true]
+    @test res == [false, false, false, true]
 
     res = RNNTrialStructures.inview(obstacle_points[2], [1.5f0, 4.5f0], 1.0471976f0, Float32(π/3))
-    @test res = zeros(Bool, 4)
+    @test res == zeros(Bool, 4)
 end
