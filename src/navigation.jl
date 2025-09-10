@@ -644,7 +644,28 @@ with view direction `θ`.
     occluded
  end
 
- function get_obstacle_intersection(pos::Vector{T}, θ::T, arena::MazeArena{T},θ0::T, fov::T) where T <: Real
+ """
+    inview(p::Tuple{T,T}, pos::Vector{T}, θ::T, fov::T) where T <: Real
+
+Return true if the point `p` is within the view cone given by angle `theta` and field-of-view angle `fov` from points `pos`
+ """
+ function inview(p::Tuple{T,T}, pos::Vector{T}, θ::T, fov::T) where T <: Real
+    v = [cos(θ), sin(θ)]
+    dp = p .- pos
+    dp = dp./norm(dp)
+    cosϕ = dp[1]*v[1] + dp[2]*v[2]
+    cosϕ >= cos(fov/2)
+ end
+
+ function inview(p::Vector{Tuple{T,T}}, pos::Vector{T}, θ::T, fov::T) where T <: Real
+    res = fill(false, length(p))
+    for (ii,pp) in enumerate(p)
+        res[ii] = inview(pp, pos, θ, fov)
+    end
+    res
+ end
+
+ function get_obstacle_intersection(pos::Vector{T}, θ::AbstractVector{T}, arena::MazeArena{T},θ0::T, fov::T) where T <: Real
     # TODO Do distance to walls as well
     w,h = extent(arena)
     wall_points = [(zero(T), zero(T)),(w, zero(T)), (w, h), (zero(T),h)]
