@@ -442,6 +442,7 @@ end
     # make sure we respect the direction of v
     s = one(T)
     if abs(vx) > 0
+        # this can return Inf if vx==vy and y1-y0 == x1 -x0
         a = (yp - y0 + s*(x0-xp)*vy/vx)/(y1-y0 - s*(x1-x0)*vy/vx)
     elseif abs(vy) > 0
         a = (xp - x0 + s*(y0-yp)*vx/vy)/(x1-x0 - s*(y1-y0)*vx/vy)
