@@ -899,15 +899,22 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
 
     θ = rand(rng, θf)
     head_direction[:,1] = trial.angular_pref(θ)
-    θq,_ = get_view(position[:,1],θ, trial.arena;fov=fov,kwargs...)
-    for _θq in θq
-        viewf[:,1] .= mean(trial.angular_pref(range(_θq[1], stop=_θq[2],length=10)),dims=2)
+    inputs_outputs = union(trial.inputs, trial.outputs)
+    compute_view = :view in inputs_outputs
+    compute_distance = :distance in inputs_outputs
+
+    if compute_view
+        θq,_ = get_view(position[:,1],θ, trial.arena;fov=fov,kwargs...)
+        for _θq in θq
+            viewf[:,1] .= mean(trial.angular_pref(range(_θq[1], stop=_θq[2],length=10)),dims=2)
+        end
     end
     # use the full field of view here
-    for (i,_θ) in enumerate(range(θ-fov/2, stop=θ+fov/2, length=16))
-        xq = get_circle_intersection(arena, position[:,1], _θ)
-        xp, dp = get_obstacle_intersection(position[:,1], _θ, arena, θ, fov)
-        dist[i,1] = min(norm(xq - position[:,1]),dp)/arena_diam
+    if compute_distance
+        for (i,_θ) in enumerate(range(θ-fov/2, stop=θ+fov/2, length=size(dist,1)))
+            xp, dp = get_obstacle_intersection(position[:,1], _θ, arena, θ, fov)
+            dist[i,1] = dp/arena_diam
+        end
     end
 
     Δθ = T.([-Δθstep, zero(T), Δθstep])
@@ -929,16 +936,18 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
         position[:,k] = get_position(i,j,trial.arena)
         head_direction[:,k] = trial.angular_pref(θ)
         # get view angles
-        _θq = get_view(position[:,k],θ, trial.arena;kwargs...)
-        θq, posq = _θq
-        for _θq in θq
-            viewf[:,k] .+= mean(trial.angular_pref(range(_θq[1], stop=_θq[2],length=10)),dims=2)
-            # get the distance
+        if compute_view
+            _θq = get_view(position[:,k],θ, trial.arena;kwargs...)
+            θq, posq = _θq
+            for _θq in θq
+                viewf[:,k] .+= mean(trial.angular_pref(range(_θq[1], stop=_θq[2],length=10)),dims=2)
+            end
         end
-        for (i,_θ) in enumerate(range(θ-fov/2, stop=θ+fov/2, length=16))
-            xq = get_circle_intersection(arena, position[:,k], _θ)
-            xp, dp = get_obstacle_intersection(position[:,k], _θ, arena,θ, fov)
-            dist[i,k] = min(norm(xq - position[:,k]),dp)/arena_diam
+        if compute_distance
+            for (i,_θ) in enumerate(range(θ-fov/2, stop=θ+fov/2, length=size(dist,1)))
+                xp, dp = get_obstacle_intersection(position[:,k], _θ, arena,θ, fov)
+                dist[i,k] = dp/arena_diam
+            end
         end
     end
     position./=[trial.arena.ncols*trial.arena.colsize, trial.arena.nrows*trial.arena.rowsize]
