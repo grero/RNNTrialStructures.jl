@@ -661,7 +661,10 @@ with view direction `θ`.
  end
 
  function get_obstacle_intersection(pos::Vector{T}, θ::T, arena::Arena{T},θ0::T,fov::T) where T <: Real
-    return (T(NaN), T(NaN)), T(Inf)
+    w,h = extent(arena)
+    wall_points = [(zero(T), zero(T)),(w, zero(T)), (w, h), (zero(T),h)]
+    pp,d_min = get_intersection(pos, θ, wall_points, θ0,fov)
+    pp, d_min
  end
  
  """
