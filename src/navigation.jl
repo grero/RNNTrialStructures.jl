@@ -401,7 +401,7 @@ end
     if all(Qqm .< 0)
         Qqm = Qqm .+ T(2π)
     end
-    return [Qqm]
+    return [Qqm], Tuple{T,T}[]
  end
 
  function get_smallest_wedge(θ1, θ2)
