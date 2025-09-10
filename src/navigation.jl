@@ -690,7 +690,7 @@ with view direction `θ`.
         # are we within the cone of visibility?
         # this should in general always be true, except we can travel along v in both directions
         # in find_line_intersection. So we need to make that we are still within the cone
-        vq = cosϕ >= cos(fov/2)
+        vq = cosϕ >= cos(fov/2) - 2*eps(T)
         #vq = compare_angles(θ0-fov/2, ϕ) && compare_angles(ϕ, θ0+fov/2)
         # use only valid points, i.e. points actually on the edge
         if vq && ((p1 < _pp < p2) || (p2 < _pp < p1))
