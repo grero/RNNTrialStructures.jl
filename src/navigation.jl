@@ -593,7 +593,7 @@ Thanks to Mistral.ai for helping me sort this one out!
             continue
         end
         if oc1[1] < oc2[1] < oc2[2] < oc1[2]
-            # oc2 is contained with oc1; remove it
+            # oc2 is contained with oc1; remove i# overlapping
             _is_occluded = true
             break
         end
