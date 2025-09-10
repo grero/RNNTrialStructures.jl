@@ -11,6 +11,21 @@ using Test
     θ1,θ2=RNNTrialStructures.order_angles( 6.061203f0,0.36774418f0)
     @test θ1 ≈ -0.22198230424989873
     @test θ2 ≈ 0.36774418f0
+
+    # non-overlapping
+    obstructed_angles = Tuple{Float32, Float32}[(0.7873215, 1.3179023), (1.7504921, 2.483581)]
+    oo,ii = RNNTrialStructures.consolidate_view(obstructed_angles)
+    @test oo[1] ≈ obstructed_angles[1]
+    @test oo[2] ≈ obstructed_angles[2]
+    @test ii == [[1],[2]]
+
+    # overlapping
+    obstructed_angles = Tuple{Float32, Float32}[(0.7873215, 1.8179023), (1.7504921, 2.483581)]
+    oo,ii = RNNTrialStructures.consolidate_view(obstructed_angles)
+    @test length(oo) == 1
+    @test oo[1] ≈ (0.7873215f0, 2.483581f0)
+    @test ii[1] = [1,2]
+
 end
 @testset "Place cells" begin
     pc = RNNTrialStructures.PlaceCells([(0.5, 0.5), (-0.5, -0.5)],[1.0, 1.0])
@@ -115,5 +130,18 @@ end
 
     arena = RNNTrialStructures.MazeArena(10,10,1.0f0,1.0f0,[[(3,3),(4,3),(4,4),(3,4)],[(7,3),(8,3),(8,4),(7,4)],[(7,7),(8,7),(8,8),(7,8)],[(3,7),(4,7),(4,8),(3,8)]])
     apref = RNNTrialStructures.AngularPreference(collect(range(0.0f0, stop=2.0f0*π, length=16)), 5.0f0, 0.8f0);
-    @test_throws ErrorException("Distance computation is not currently implemented fully for MazeArena") RNNTrialStructures.NavigationTrial(20,50,[:view, :distance], arena, apref)
+
+    pp, dp = RNNTrialStructures.get_obstacle_intersection([1.5f0, 4.5f0], 1.0471976f0-Float32(π/3)/2, arena, 1.0471976f0, Float32(π/3))
+    @test pp ≈ (6.0f0, 7.0980763f0)
+    @test dp ≈ 5.1961527f0
+
+    obstacle_points = RNNTrialStructures.get_obstacle_points(arena)
+    res = RNNTrialStructures.inview(obstacle_points[4], [1.5f0, 4.5f0], 1.0471976f0, Float32(π/3))
+    @test res == ones(Bool, 4)
+
+    res = RNNTrialStructures.inview(obstacle_points[3], [1.5f0, 4.5f0], 1.0471976f0, Float32(π/3))
+    @test res = [false, false, false, true]
+
+    res = RNNTrialStructures.inview(obstacle_points[2], [1.5f0, 4.5f0], 1.0471976f0, Float32(π/3))
+    @test res = zeros(Bool, 4)
 end
