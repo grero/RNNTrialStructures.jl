@@ -439,10 +439,12 @@ end
     x1,y1 = p1
     xp,yp = po
     vx,vy = v
+    # make sure we respect the direction of v
+    s = one(T)
     if vx > 0
-        a = (yp - y0 + (x0-xp)*vy/vx)/(y1-y0 - (x1-x0)*vy/vx)
+        a = (yp - y0 + s*(x0-xp)*vy/vx)/(y1-y0 - s*(x1-x0)*vy/vx)
     else
-        a = (xp - x0 + (y0-yp)*vx/vy)/(x1-x0 - (y1-y0)*vx/vy)
+        a = (xp - x0 + s*(y0-yp)*vx/vy)/(x1-x0 - s*(y1-y0)*vx/vy)
     end
     Δx = a*(x1-x0)
     Δy = a*(y1-y0)
