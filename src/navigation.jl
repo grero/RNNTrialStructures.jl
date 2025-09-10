@@ -864,7 +864,7 @@ function get_view_old(pos::Vector{T}, θ::T,arena::Arena{T}) where T <: Real
     end
 end
 
-function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/4), p_stay=T(1/3), p_hd=T(1/4), kwargs...) where T <: Real
+function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/4), p_stay=T(1/3), p_hd=T(1/4), fov=T(π/3), kwargs...) where T <: Real
     # random initiarange(-T(π), stop=T(π), step=π/4)li
     arena = trial.arena
     arena_diam = sqrt(sum(abs2, extent(arena)))
@@ -885,7 +885,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
 
     θ = rand(rng, θf)
     head_direction[:,1] = trial.angular_pref(θ)
-    θq = get_view(position[:,1],θ, trial.arena;kwargs...)
+    θq,_ = get_view(position[:,1],θ, trial.arena;fov=fov,kwargs...)
     for _θq in θq
         viewf[:,1] .= mean(trial.angular_pref(range(_θq[1], stop=_θq[2],length=10)),dims=2)
         for (i,_θ) in enumerate(range(_θq[1], stop=_θq[2], length=16))
