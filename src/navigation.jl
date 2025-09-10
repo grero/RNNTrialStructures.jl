@@ -645,9 +645,11 @@ with view direction `θ`.
  end
 
  function get_obstacle_intersection(pos::Vector{T}, θ::T, arena::MazeArena{T},θ0::T, fov::T) where T <: Real
+    # TODO Do distance to walls as well
+    w,h = extent(arena)
+    wall_points = [(zero(T), zero(T)),(w, zero(T)), (w, h), (zero(T),h)]
+    pp,d_min = get_intersection(pos, θ, wall_points, θ0,fov)
     obstacle_points = get_obstacle_points(arena)
-    pp = (T(NaN), T(NaN)) 
-    d_min = Inf
     for points in obstacle_points
         _pp, _dm = get_intersection(pos, θ, points, θ0,fov)
         if _dm < d_min
