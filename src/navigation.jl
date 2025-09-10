@@ -671,19 +671,23 @@ with view direction `θ`.
  Find the first point where a ray from `pos` along `θ` intersects with the polygon represntedy by `points`
  """
  function get_intersection(pos::Vector{T}, θ::T, points::Vector{Tuple{T,T}}, θ0::T,fov::T) where T <: Real
+    ppos = convert(Vector{Float64}, pos)
+    θp = Float64(θ)
+    θ0p = Float64(θ0)
+    fovp = Float64(fov)
     np = length(points)
-    v = [cos(θ),sin(θ)]
-    v0 = [cos(θ0),sin(θ0)]
+    v = [cos(θp),sin(θp)]
+    v0 = [cos(θ0p),sin(θ0p)]
     # loop through each edge
     d_min = T(Inf)
     pp = (T(NaN), T(NaN))
     for (i1,i2) in zip(circshift(1:np,1), 1:np)
-        p1 = points[i1]
-        p2 = points[i2] 
+        p1 = convert(Tuple{Float64, Float64}, points[i1])
+        p2 = convert(Tuple{Float64,Float64}, points[i2])
         # make sure that at least point is within the cone
         
-        _pp = find_line_intersection(pos, v, p1,p2)
-        _dpp = _pp .- pos
+        _pp = find_line_intersection(ppos, v, p1,p2)
+        _dpp = _pp .- ppos
         _dpp = _dpp./norm(_dpp)
         # we need the angle between _dpp and v
         # ϕ is in allocentric coordinates, θ
@@ -696,7 +700,7 @@ with view direction `θ`.
         vq = cosϕ >= cos(fov/2) - 2*eps(T)
         #vq = compare_angles(θ0-fov/2, ϕ) && compare_angles(ϕ, θ0+fov/2)
         # use only valid points, i.e. points actually on the edge
-        if vq && ((p1 < _pp < p2) || (p2 < _pp < p1))
+        if vq && ((p1 .- 2*eps(T) <= _pp <= p2 .+ 2*eps(T)) || (p2 .- 2*eps(T) <= _pp <= p1 .+ 2*eps(T)))
             d = norm(_pp .- pos)
             if d < d_min
                 d_min = d
@@ -704,7 +708,7 @@ with view direction `θ`.
             end
         end
     end
-    pp, d_min
+    convert(Tuple{T,T}, pp), T(d_min)
  end
 
  function get_view(pos::Vector{T}, θ::T, arena::MazeArena{T};fov::T=T(π/2)) where T <: Real
