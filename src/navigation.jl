@@ -322,13 +322,6 @@ struct NavigationTrial{T<:Real} <: AbstractTrialStruct{T}
     angular_pref::AngularPreference{T}
 end
 
-function NavigationTrial(min_num_steps::Int64, max_num_steps::Int64, inputs::Vector{Symbol}, outputs::Vector{Symbol}, arena::MazeArena{T}, angular_pref::AngularPreference{T}) where T <: Real
-    if :distance in outputs || :distance in inputs
-        error("Distance computation is not currently implemented fully for MazeArena")
-    end
-    NavigationTrial{T}(min_num_steps, max_num_steps,inputs, outputs, arena,angular_pref)
-end
-    
 # fallback
 function NavigationTrial(min_num_steps::Int64, max_num_steps::Int64, arena::AbstractArena{T}, apref::AngularPreference{T})  where T <: Real
     NavigationTrial{T}(min_num_steps, max_num_steps, [:view],[:position],arena, apref)
