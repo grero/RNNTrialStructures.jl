@@ -895,7 +895,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     # not in view
     # alternatively, fix the number of points for the view (like a fovea) and then encode the distance
     # for each of these fixed points
-    dist = zeros(T, size(viewf)...)
+    dist = zeros(T, 16,nsteps)
 
     θ = rand(rng, θf)
     head_direction[:,1] = trial.angular_pref(θ)
