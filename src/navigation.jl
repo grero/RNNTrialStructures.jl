@@ -668,6 +668,7 @@ with view direction `θ`.
  function get_intersection(pos::Vector{T}, θ::T, points::Vector{Tuple{T,T}}, θ0::T,fov::T) where T <: Real
     np = length(points)
     v = [cos(θ),sin(θ)]
+    v0 = [cos(θ0),sin(θ0)]
     # loop through each edge
     d_min = T(Inf)
     pp = (T(NaN), T(NaN))
@@ -682,10 +683,13 @@ with view direction `θ`.
         # we need the angle between _dpp and v
         # ϕ is in allocentric coordinates, θ
         #ϕ = atan(_dpp[2],_dpp[1])
-        cosϕ = _dpp[1]*v[1] + _dpp[2]*v[2]
-        vq = cosϕ > cos(fov/2)
+        # angle between the point and the ray
+        cosϕ = _dpp[1]*v0[1] + _dpp[2]*v0[2]
+        # are we within the cone of visibility?
+        # this should in general always be true, except we can travel along v in both directions
+        # in find_line_intersection. So we need to make that we are still within the cone
+        vq = cosϕ >= cos(fov/2)
         #vq = compare_angles(θ0-fov/2, ϕ) && compare_angles(ϕ, θ0+fov/2)
-        _qpp = _dpp[1]*v[1] + _dpp[2]*v[2]
         # use only valid points, i.e. points actually on the edge
         if vq && ((p1 < _pp < p2) || (p2 < _pp < p1))
             d = norm(_pp .- pos)
