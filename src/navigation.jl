@@ -679,8 +679,8 @@ with view direction `θ`.
     v = [cos(θp),sin(θp)]
     v0 = [cos(θ0p),sin(θ0p)]
     # loop through each edge
-    d_min = T(Inf)
-    pp = (T(NaN), T(NaN))
+    d_min = Inf
+    pp = (NaN, NaN)
     for (i1,i2) in zip(circshift(1:np,1), 1:np)
         p1 = convert(Tuple{Float64, Float64}, points[i1])
         p2 = convert(Tuple{Float64,Float64}, points[i2])
@@ -697,10 +697,10 @@ with view direction `θ`.
         # are we within the cone of visibility?
         # this should in general always be true, except we can travel along v in both directions
         # in find_line_intersection. So we need to make that we are still within the cone
-        vq = cosϕ >= cos(fov/2) - 2*eps(T)
+        vq = cosϕ >= cos(fov/2)
         #vq = compare_angles(θ0-fov/2, ϕ) && compare_angles(ϕ, θ0+fov/2)
         # use only valid points, i.e. points actually on the edge
-        if vq && ((p1 .- 2*eps(T) <= _pp <= p2 .+ 2*eps(T)) || (p2 .- 2*eps(T) <= _pp <= p1 .+ 2*eps(T)))
+        if vq && ((p1 <= _pp <= p2) || (p2 <= _pp <= p1))
             d = norm(_pp .- pos)
             if d < d_min
                 d_min = d
