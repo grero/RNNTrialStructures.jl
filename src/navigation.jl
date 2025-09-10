@@ -671,14 +671,26 @@ Return true if the point `p` is within the view cone given by angle `theta` and 
     wall_points = [(zero(T), zero(T)),(w, zero(T)), (w, h), (zero(T),h)]
     pp,d_min = get_intersection(pos, θ, wall_points, θ0,fov)
     obstacle_points = get_obstacle_points(arena)
-    for points in obstacle_points
-        _pp, _dm = get_intersection(pos, θ, points, θ0,fov)
-        if _dm < d_min
-            pp = _pp
-            d_min = _dm
+    res = [inview(points, pos, θ0, fov) for points in obstacle_points]
+    wall_points = [(zero(T), zero(T)),(w, zero(T)), (w, h), (zero(T),h)]
+    pps = Vector{Tuple{T,T}}(undef, length(θ))
+    dms = zeros(T, length(θ))
+
+    for (jj,_θ) in enumerate(θ)
+        pp,d_min = get_intersection(pos, _θ, wall_points, θ0,fov)
+        for (rr,points) in zip(res, obstacle_points)
+            if any(rr)
+                _pp, _dm = get_intersection(pos, _θ, points, θ0,fov)
+                if _dm < d_min
+                    pp = _pp
+                    d_min = _dm
+                end
+            end
         end
+        pps[jj] = pp
+        dms[jj] = d_min 
     end
-    pp, d_min
+    pps, dms
  end
 
  function get_obstacle_intersection(pos::Vector{T}, θ::T, arena::Arena{T},θ0::T,fov::T) where T <: Real
@@ -931,11 +943,11 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
         end
     end
     # use the full field of view here
+
     if compute_distance
-        for (i,_θ) in enumerate(range(θ-fov/2, stop=θ+fov/2, length=size(dist,1)))
-            xp, dp = get_obstacle_intersection(position[:,1], _θ, arena, θ, fov)
-            dist[i,1] = dp/arena_diam
-        end
+        θs = range(θ-fov/2, stop=θ+fov/2, length=size(dist,1))
+        xp, dp = get_obstacle_intersection(position[:,1], θs, arena, θ, fov)
+        dist[:,1] .= dp./arena_diam
     end
 
     Δθ = T.([-Δθstep, zero(T), Δθstep])
@@ -965,12 +977,25 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
             end
         end
         if compute_distance
-            for (i,_θ) in enumerate(range(θ-fov/2, stop=θ+fov/2, length=size(dist,1)))
-                xp, dp = get_obstacle_intersection(position[:,k], _θ, arena,θ, fov)
-                dist[i,k] = dp/arena_diam
+            θs = range(θ-fov/2, stop=θ+fov/2, length=size(dist,1))
+            xp, dp = get_obstacle_intersection(position[:,k], θs, arena,θ, fov)
+            dist[:,k] .= dp./arena_diam
+        end
+    end
+    if compute_distance
+        idx = findall(!isfinite, dist)
+        for ii in idx
+            if ii.I[1] < size(dist,1)-2
+                dm = dist[ii.I[1]+2, ii.I[2]] - dist[ii.I[1]+1, ii.I[2]]
+                dist[ii] = dist[ii.I[1]+1,ii.I[2]] - dm
+            else
+                dm = dist[ii.I[1]-1, ii.I[2]] - dist[ii.I[1]-2, ii.I[2]]
+                dist[ii] = dist[ii.I[1]-1,ii.I[2]] + dm
             end
         end
     end
+    # hack: because of finite precision, we sometimes get Infs in the distance. Use a crude interpolation for now
+    
     position./=[trial.arena.ncols*trial.arena.colsize, trial.arena.nrows*trial.arena.rowsize]
     position .= 0.8*position .+ 0.05 # rescale from 0.05 to 0.85 to avoid saturation
     position, head_direction, viewf, movement, dist
