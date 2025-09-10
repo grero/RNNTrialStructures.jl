@@ -668,8 +668,6 @@ Return true if the point `p` is within the view cone given by angle `theta` and 
  function get_obstacle_intersection(pos::Vector{T}, θ::AbstractVector{T}, arena::MazeArena{T},θ0::T, fov::T) where T <: Real
     # TODO Do distance to walls as well
     w,h = extent(arena)
-    wall_points = [(zero(T), zero(T)),(w, zero(T)), (w, h), (zero(T),h)]
-    pp,d_min = get_intersection(pos, θ, wall_points, θ0,fov)
     obstacle_points = get_obstacle_points(arena)
     res = [inview(points, pos, θ0, fov) for points in obstacle_points]
     wall_points = [(zero(T), zero(T)),(w, zero(T)), (w, h), (zero(T),h)]
