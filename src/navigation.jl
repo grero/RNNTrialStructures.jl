@@ -754,7 +754,7 @@ with view direction `θ`.
             angle_min, i_min = findmin(angles)
             angle_max, i_max = findmax(angles)
             # convert this to allocentric
-            angle_min, angle_max = first(get_view(pos, angle_min, angle_max, pos_center))
+            angle_min, angle_max = first(first(get_view(pos, angle_min, angle_max, pos_center)))
             (angle_min,angle_max),i12 = order_angles(angle_min, angle_max)
             i_min,i_max = [i_min,i_max][[i12...]]
         else
@@ -792,10 +792,9 @@ with view direction `θ`.
         #obstructed_points = [(obstructed_points[i1][j1], obstructed_points[i2][j2]) for ((i1,j1),(i2,j2)) in ocid]
         # the obstructed points should now contain the points in front. i.e. no obscured by other occlusions
     end
-  
     θ12 = get_view(pos,θ,pos_center;fov=fov)
     # θ12 are in allocentric coordinates
-    θ1,θ2 = first(θ12)
+    θ1,θ2 = first(first(θ12))
     θs = [(θ1,θ2)]
     if length(obstructed_angles) > 0
         
@@ -803,7 +802,7 @@ with view direction `θ`.
         for o_angle in obstructed_angles
             if θ1 ≈ o_angle[1] && o_angle[2] ≈ θ2
                 # single occlusion completely blocking the view
-                return Tuple{T,T}[]
+                return Tuple{T,T}[], Tuple{T,T}[]
             end
         end
         θs = Tuple{T,T}[]
