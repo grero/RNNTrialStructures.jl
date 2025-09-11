@@ -33,6 +33,10 @@ struct AngularPreference{T<:Real}
     a::T
 end
 
+function AngularPreference(μ::AbstractVector{T}, σ, a) where T <: Real
+    AngularPreference{T}(μ, T(σ), T(a))
+end
+
 function signature(apref::AngularPreference{T}, h=zero(UInt32)) where T <: Real
     for _μ in apref.μ
         h = crc32c(string(_μ), h)
