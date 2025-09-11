@@ -128,12 +128,32 @@ end
 end
 
 @testset "Navigation" begin
+    arena = RNNTrialStructures.Arena(5,5,1.0f0, 1.0f0)
+    @test RNNTrialStructures.signature(arena)  == 0xb0173a4c
+
+    @test RNNTrialStructures.get_center_position(arena) == [2.5f0, 2.5f0]
+
+    spiral_path = RNNTrialStructures.traverse_outwards(arena)
+    @test spiral_path == Tuple{Float32, Float32}[(2.5, 2.5), (1.5, 2.5), (1.5, 1.5), (2.5, 1.5), (3.5, 1.5), (3.5, 2.5), (3.5, 3.5), (2.5, 3.5), (1.5, 3.5), (0.5, 3.5), (0.5, 2.5), (0.5, 1.5), (0.5, 0.5), (1.5, 0.5), (2.5, 0.5), (3.5, 0.5), (4.5, 0.5), (4.5, 1.5), (4.5, 2.5), (4.5, 3.5), (4.5, 4.5), (3.5, 4.5), (2.5, 4.5), (1.5, 4.5), (0.5, 4.5)]
+
+    possible_steps = RNNTrialStructures.check_step(1,1,arena)
+    @test possible_steps == [(0,0), (1,0),(0,1)]
+
+    possible_steps = RNNTrialStructures.check_step(5,5,arena)
+    @test possible_steps == [(0,0), (-1,0), (0,-1)]
+
     arena = RNNTrialStructures.MazeArena(10,10,1.0f0,1.0f0,[[(2,2)],[(4,2)],[(4,4)],[(2,4)]])
     possible_steps = RNNTrialStructures.check_step(1,2,arena)
     # an obstacle to our right; we can only move up or down
     @test possible_steps == [(0,0),(0,1),(0,-1)]
 
     arena = RNNTrialStructures.MazeArena(10,10,1.0f0,1.0f0,[[(3,3),(4,3),(4,4),(3,4)],[(7,3),(8,3),(8,4),(7,4)],[(7,7),(8,7),(8,8),(7,8)],[(3,7),(4,7),(4,8),(3,8)]])
+
+    @test RNNTrialStructures.signature(arena) == 0x74ba5f43
+
+    center_pos = RNNTrialStructures.get_center(arena)
+    @test center_pos == (5.0f0, 5.0f0)
+
     apref = RNNTrialStructures.AngularPreference(collect(range(0.0f0, stop=2.0f0*π, length=16)), 5.0f0, 0.8f0);
 
     pp, dp = RNNTrialStructures.get_obstacle_intersection([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], arena, 1.0471976f0, Float32(π/3))
@@ -149,4 +169,15 @@ end
 
     res = RNNTrialStructures.inview(obstacle_points[2], [1.5f0, 4.5f0], 1.0471976f0, Float32(π/3))
     @test res == zeros(Bool, 4)
+
+    trialstruct = RNNTrialStructures.NavigationTrial(5,10,[:distance, :view],[:position], arena,apref)
+    @test RNNTrialStructures.num_inputs(trialstruct) == 32 
+    @test RNNTrialStructures.num_outputs(trialstruct) == 2
+
+    @test RNNTrialStructures.signature(trialstruct) == 0x95b53b84 
+
+    rng = StableRNG(1234)
+    position, head_direction, viewf, movement,dist = trialstruct(;rng=rng) 
+    @test size(position,2) == size(head_direction,2) == size(viewf,2) == size(dist,2) == 9
+    @test size(position,1) == 2
 end
