@@ -995,7 +995,7 @@ function performance(trial::RandomSequenceTrial{T}, output::AbstractArray{T,3}, 
         if require_fixation
             _ppq *= (_err[1] .< T(0.2))
         end
-        ppq .+= _ppq
+        ppq[idx] .+= _ppq
         nnq .+= idx
     end
     ppq ./= nnq
