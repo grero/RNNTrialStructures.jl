@@ -16,6 +16,20 @@ struct MazeArena{T<:Real} <: AbstractArena{T}
     obstacles::Vector{Vector{Tuple{Int64,Int64}}} # vector of vector of points defining the borders of the obstacles
 end
 
+"""
+    MazeArena()
+
+Return a 10 × 10 grid arena with four obstacles
+"""
+function MazeArena()
+    arena = RNNTrialStructures.MazeArena(10,10,1.0f0,1.0f0,
+                                          [[(3,3),(4,3),(4,4),(3,4)],
+                                          [(7,3),(8,3),(8,4),(7,4)],
+                                          [(7,7),(8,7),(8,8),(7,8)],
+                                          [(3,7),(4,7),(4,8),(3,8)]])
+    arena
+end
+
 function signature(arena::Arena{T},h=zero(UInt32)) where T <: Real
    for q in [arena.ncols, arena.nrows, arena.colsize, arena.rowsize]
         for ii in q
@@ -946,7 +960,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     Δθ = T.([-Δθstep, zero(T), Δθstep])
     for k in 2:nsteps
         θ += get_head_direction(Δθstep,θ;rng=rng,p_stay=p_stay) 
-        i1,j1 = get_coordinate(i,j,trial.arena,θ;rng=rng)
+        i1,j1 = get_coordinate(i,j,trial.arena,θ;rng=rng, p_hd=p_hd)
         if i1 - i > 0
             movement[1,k] = i1-i 
         elseif i1 - i < 0
@@ -1091,7 +1105,7 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
             output = -1*ones(T, noutputs, max_nsteps, ntrials)
             output_mask = zeros(T, noutputs, max_nsteps, ntrials)
             for i in 1:ntrials
-                position, head_direction,viewfield,movement,dist = trial(;rng=rng,Δθstep=Δθstep,fov=fov)
+                position, head_direction,viewfield,movement,dist = trial(;rng=rng,Δθstep=Δθstep,fov=fov, p_stay=p_stay, p_hd=p_hd)
                 offset = 0
                 if :view in trial.inputs
                     input[offset+1:offset+size(viewfield,1), 1:size(viewfield,2),i]  .= viewfield
