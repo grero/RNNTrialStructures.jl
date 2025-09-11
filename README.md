@@ -1,4 +1,5 @@
 # RNNTrialStructures
+[![CI](https://github.com/grero/RNNTrialStructures.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/grero/RNNTrialStructures.jl/actions/workflows/ci.yml)
 
 ## Usage
 
