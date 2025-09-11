@@ -16,6 +16,20 @@ struct MazeArena{T<:Real} <: AbstractArena{T}
     obstacles::Vector{Vector{Tuple{Int64,Int64}}} # vector of vector of points defining the borders of the obstacles
 end
 
+"""
+    MazeArena()
+
+Return a 10 × 10 grid arena with four obstacles
+"""
+function MazeArena()
+    arena = RNNTrialStructures.MazeArena(10,10,1.0f0,1.0f0,
+                                          [[(3,3),(4,3),(4,4),(3,4)],
+                                          [(7,3),(8,3),(8,4),(7,4)],
+                                          [(7,7),(8,7),(8,8),(7,8)],
+                                          [(3,7),(4,7),(4,8),(3,8)]])
+    arena
+end
+
 function signature(arena::Arena{T},h=zero(UInt32)) where T <: Real
    for q in [arena.ncols, arena.nrows, arena.colsize, arena.rowsize]
         for ii in q
