@@ -169,4 +169,13 @@ end
 
     res = RNNTrialStructures.inview(obstacle_points[2], [1.5f0, 4.5f0], 1.0471976f0, Float32(π/3))
     @test res == zeros(Bool, 4)
+
+    trialstruct = RNNTrialStructures.NavigationTrial(5,10,[:distance],[:position], arena,apref)
+
+    @test RNNTrialStructures.signature(trialstruct) == 0xd87ecd2b
+
+    rng = StableRNG(1234)
+    position, head_direction, viewf, movement,dist = trialstruct(;rng=rng) 
+    @test size(position,2) == size(head_direction,2) == size(viewf,2) == size(dist,2) == 9
+    @test size(position,1) == 2
 end
