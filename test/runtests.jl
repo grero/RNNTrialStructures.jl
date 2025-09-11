@@ -170,9 +170,11 @@ end
     res = RNNTrialStructures.inview(obstacle_points[2], [1.5f0, 4.5f0], 1.0471976f0, Float32(π/3))
     @test res == zeros(Bool, 4)
 
-    trialstruct = RNNTrialStructures.NavigationTrial(5,10,[:distance],[:position], arena,apref)
+    trialstruct = RNNTrialStructures.NavigationTrial(5,10,[:distance, :view],[:position], arena,apref)
+    @test RNNTrialStructures.num_inputs(trialstruct) == 32 
+    @test RNNTrialStructures.num_outputs(trialstruct) == 2
 
-    @test RNNTrialStructures.signature(trialstruct) == 0xd87ecd2b
+    @test RNNTrialStructures.signature(trialstruct) == 0x95b53b84 
 
     rng = StableRNG(1234)
     position, head_direction, viewf, movement,dist = trialstruct(;rng=rng) 
