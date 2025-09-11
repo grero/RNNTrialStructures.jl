@@ -946,7 +946,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     Δθ = T.([-Δθstep, zero(T), Δθstep])
     for k in 2:nsteps
         θ += get_head_direction(Δθstep,θ;rng=rng,p_stay=p_stay) 
-        i1,j1 = get_coordinate(i,j,trial.arena,θ;rng=rng)
+        i1,j1 = get_coordinate(i,j,trial.arena,θ;rng=rng, p_hd=p_hd)
         if i1 - i > 0
             movement[1,k] = i1-i 
         elseif i1 - i < 0
@@ -1091,7 +1091,7 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt::T; rng=Ra
             output = -1*ones(T, noutputs, max_nsteps, ntrials)
             output_mask = zeros(T, noutputs, max_nsteps, ntrials)
             for i in 1:ntrials
-                position, head_direction,viewfield,movement,dist = trial(;rng=rng,Δθstep=Δθstep,fov=fov)
+                position, head_direction,viewfield,movement,dist = trial(;rng=rng,Δθstep=Δθstep,fov=fov, p_stay=p_stay, p_hd=p_hd)
                 offset = 0
                 if :view in trial.inputs
                     input[offset+1:offset+size(viewfield,1), 1:size(viewfield,2),i]  .= viewfield
