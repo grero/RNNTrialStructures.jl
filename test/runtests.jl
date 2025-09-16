@@ -188,14 +188,18 @@ end
 
     @test RNNTrialStructures.signature(trialstruct) == 0x95b53b84 
 
-    rng = StableRNG(1234)
-    position, head_direction, viewf, movement,dist = trialstruct(;rng=rng) 
-    @test size(position,2) == size(head_direction,2) == size(viewf,2) == size(dist,2) == 9
-    @test size(position,1) == 2
-
     textured_arena = RNNTrialStructures.TexturedArena(arena, Float32.([3.0, 4.0, 5.0, 6.0]))
     pp, dp,tt = RNNTrialStructures.get_texture([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], textured_arena, 1.0471976f0, Float32(π/3))
     @test all(pp[1] .≈ (6.0f0, 7.0980763f0))
     @test dp[1] ≈ 5.1961527f0
     @test tt[1] ≈ 5.0
+
+    trialstruct = RNNTrialStructures.NavigationTrial(5,10,[:distance, :view, :texture],[:position], arena,apref)
+    @test RNNTrialStructures.num_inputs(trialstruct) == 48
+
+    rng = StableRNG(1234)
+    position, head_direction, viewf, movement,dist,texture = trialstruct(;rng=rng) 
+    @test size(position,2) == size(head_direction,2) == size(viewf,2) == size(dist,2) == size(texture,2) == 9
+    @test size(position,1) == 2
+    @test size(dist,1) == size(texture,1) == 16
 end
