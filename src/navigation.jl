@@ -699,11 +699,15 @@ Return true if the point `p` is within the view cone given by angle `theta` and 
     pps, dms
  end
 
- function get_obstacle_intersection(pos::Vector{T}, θ::T, arena::Arena{T},θ0::T,fov::T) where T <: Real
+ function get_obstacle_intersection(pos::Vector{T}, θ::AbstractVector{T}, arena::Arena{T},θ0::T,fov::T) where T <: Real
     w,h = extent(arena)
     wall_points = [(zero(T), zero(T)),(w, zero(T)), (w, h), (zero(T),h)]
-    pp,d_min = get_intersection(pos, θ, wall_points, θ0,fov)
-    pp, d_min
+    pps = Vector{Tuple{T,T}}(undef, length(θ))
+    dms = zeros(T, length(θ))
+    for (jj,_θ) in enumerate(θ)
+        pps[jj],dms[jj]= get_intersection(pos, _θ, wall_points, θ0,fov)
+    end
+    pps, dms 
  end
  
  """
