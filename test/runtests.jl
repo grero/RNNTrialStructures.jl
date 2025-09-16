@@ -188,6 +188,12 @@ end
 
     @test RNNTrialStructures.signature(trialstruct) == 0x95b53b84 
 
+    textured_arena = RNNTrialStructures.TexturedArena(RNNTrialStructures.Arena(10,10, 1.0f0, 1.f0), arena.obstacles, [5.0f0, 6.0f0, 7.0f0, 8.0f0])
+    @test textured_arena.textures == [5.0f0, 6.0f0, 7.0f0, 8.0f0]
+
+    textured_arena = RNNTrialStructures.TexturedArena(arena)
+    @test textured_arena.textures == Float32.([1.0, 2.0, 3.0, 4.0])
+
     textured_arena = RNNTrialStructures.TexturedArena(arena, Float32.([3.0, 4.0, 5.0, 6.0]))
     pp, dp,tt = RNNTrialStructures.get_texture([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], textured_arena, 1.0471976f0, Float32(π/3))
     @test all(pp[1] .≈ (6.0f0, 7.0980763f0))
