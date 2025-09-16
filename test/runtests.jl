@@ -129,10 +129,13 @@ end
 
 @testset "Navigation" begin
     arena = RNNTrialStructures.Arena(10,10,1.0f0,1.0f0)
-    pp, dp = RNNTrialStructures.get_obstacle_intersection([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], arena, 1.0471976f0, Float32(π/3))
+    pp, dp,oid = RNNTrialStructures.get_obstacle_intersection([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], arena, 1.0471976f0, Float32(π/3))
     @test length(pp) == length(dp) == 1
     @test all(pp[1] .≈ (10.0f0, 9.407477f0))
     @test dp[1] ≈ 9.814955f0
+    @test oid[1] == 0
+    _,_,oid = RNNTrialStructures.get_texture([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], arena, 1.0471976f0, Float32(π/3))
+    @test oid[1] == 0.0f0
 
     arena = RNNTrialStructures.Arena(5,5,1.0f0, 1.0f0)
     @test RNNTrialStructures.signature(arena)  == 0xb0173a4c
@@ -162,9 +165,12 @@ end
 
     apref = RNNTrialStructures.AngularPreference(collect(range(0.0f0, stop=2.0f0*π, length=16)), 5.0f0, 0.8f0);
 
-    pp, dp = RNNTrialStructures.get_obstacle_intersection([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], arena, 1.0471976f0, Float32(π/3))
+    pp, dp,oid = RNNTrialStructures.get_obstacle_intersection([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], arena, 1.0471976f0, Float32(π/3))
     @test all(pp[1] .≈ (6.0f0, 7.0980763f0))
     @test dp[1] ≈ 5.1961527f0
+    @test oid[1] == 3
+    _, _,oid = RNNTrialStructures.get_texture([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], arena, 1.0471976f0, Float32(π/3))
+    @test oid[1] ≈ 3.0f0
 
     obstacle_points = RNNTrialStructures.get_obstacle_points(arena)
     res = RNNTrialStructures.inview(obstacle_points[4], [1.5f0, 4.5f0], 1.0471976f0, Float32(π/3))
@@ -186,4 +192,10 @@ end
     position, head_direction, viewf, movement,dist = trialstruct(;rng=rng) 
     @test size(position,2) == size(head_direction,2) == size(viewf,2) == size(dist,2) == 9
     @test size(position,1) == 2
+
+    textured_arena = RNNTrialStructures.TexturedArena(arena, Float32.([3.0, 4.0, 5.0, 6.0]))
+    pp, dp,tt = RNNTrialStructures.get_texture([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], textured_arena, 1.0471976f0, Float32(π/3))
+    @test all(pp[1] .≈ (6.0f0, 7.0980763f0))
+    @test dp[1] ≈ 5.1961527f0
+    @test tt[1] ≈ 5.0
 end
