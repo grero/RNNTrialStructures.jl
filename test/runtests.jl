@@ -202,4 +202,5 @@ end
     @test size(position,2) == size(head_direction,2) == size(viewf,2) == size(dist,2) == size(texture,2) == 9
     @test size(position,1) == 2
     @test size(dist,1) == size(texture,1) == 16
+    @test texture[:,1] ≈ Float32[0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.0]
 end
