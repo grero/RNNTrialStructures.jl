@@ -128,6 +128,12 @@ end
 end
 
 @testset "Navigation" begin
+    arena = RNNTrialStructures.Arena(10,10,1.0f0,1.0f0)
+    pp, dp = RNNTrialStructures.get_obstacle_intersection([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], arena, 1.0471976f0, Float32(π/3))
+    @test length(pp) == length(dp) == 1
+    @test all(pp[1] .≈ (10.0f0, 9.407477f0))
+    @test dp[1] ≈ 9.814955f0
+
     arena = RNNTrialStructures.MazeArena(10,10,1.0f0,1.0f0,[[(2,2)],[(4,2)],[(4,4)],[(2,4)]])
     possible_steps = RNNTrialStructures.check_step(1,2,arena)
     # an obstacle to our right; we can only move up or down
