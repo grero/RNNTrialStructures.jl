@@ -1,6 +1,7 @@
 using LinearAlgebra
 
 abstract type AbstractArena{T<:Real} end
+abstract type AbstractMazeArena{T<:Real} <: AbstractArena{T} end
 struct Arena{T<:Real} <: AbstractArena{T}
     ncols::Int64
     nrows::Int64
@@ -8,12 +9,50 @@ struct Arena{T<:Real} <: AbstractArena{T}
     rowsize::T
 end
 
-struct MazeArena{T<:Real} <: AbstractArena{T}
+struct MazeArena{T<:Real} <: AbstractMazeArena{T}
     ncols::Int64
     nrows::Int64
     colsize::T
     rowsize::T
     obstacles::Vector{Vector{Tuple{Int64,Int64}}} # vector of vector of points defining the borders of the obstacles
+end
+
+struct TexturedArena{T<:Real} <: AbstractMazeArena{T}
+    ncols::Int64
+    nrows::Int64
+    colsize::T
+    rowsize::T
+    obstacles::Vector{Vector{Tuple{Int64,Int64}}} # vector of vector of points defining the borders of the obstacles
+    textures::Vector{T}  # texture associated with each wall/obstacle
+end
+
+function TexturedArena(arena, obstacles::Vector{Vector{Tuple{Int64, Int64}}}, texture_values::Vector{T}) where T <: Real
+    # one texture value per obstacle
+    TexturedArena{T}(arena.ncols, arena.nrows, arena.colsize, arena.rowsize, obstacles, texture_values)
+end
+
+function TexturedArena(arena::MazeArena{T}) where T <: Real
+    texture_values = [T(i) for i in 1:length(arena.obstacles)]
+    TexturedArena(arena,texture_values)
+end
+
+function TexturedArena(arena::MazeArena{T}, texture_values::Vector{T}) where T <: Real
+    TexturedArena{T}(arena.ncols, arena.nrows, arena.colsize, arena.rowsize, arena.obstacles, texture_values)
+end
+
+function get_texture(pos::Vector{T}, θ::AbstractVector{T}, arena::TexturedArena{T}, θ0::T, fov::T) where T <: Real
+    pp,dm,oid = get_obstacle_intersection(pos, θ, arena, θ0, fov)
+    pp,dm,[_oid > 0 ? arena.textures[_oid] : zero(T) for _oid in oid]
+end
+
+function get_texture(pos::Vector{T}, θ::AbstractVector{T}, arena::MazeArena{T}, θ0::T, fov::T) where T <: Real
+    pp,dm,oid = get_obstacle_intersection(pos, θ, arena, θ0, fov)
+    pp,dm, T.(oid)
+end
+
+function get_texture(pos::Vector{T}, θ::AbstractVector{T}, arena::Arena{T}, θ0::T, fov::T) where T <: Real
+    pp,dm,oid = get_obstacle_intersection(pos, θ, arena, θ0, fov)
+    pp, dm, T.(oid)
 end
 
 """
@@ -171,7 +210,7 @@ function check_step(i::Int64, j::Int64, arena::MazeArena{T}) where T <: Real
     possible_steps
 end
 
-function get_obstacle_points(arena::MazeArena{T}) where T <: Real
+function get_obstacle_points(arena::AbstractMazeArena{T}) where T <: Real
     ncols = arena.ncols
     colsize = arena.colsize
     rowsize = arena.rowsize
@@ -244,7 +283,7 @@ function get_coordinate(arena::Arena{T};rng=Random.default_rng()) where T <: Rea
     (i,j)
 end
 
-function get_coordinate(arena::MazeArena{T};rng=Random.default_rng()) where T <: Real
+function get_coordinate(arena::AbstractMazeArena{T};rng=Random.default_rng()) where T <: Real
     valid_points = Tuple{Int64, Int64}[]
     for i in 1:arena.ncols
         for j in 1:arena.nrows
@@ -673,7 +712,7 @@ Return true if the point `p` is within the view cone given by angle `theta` and 
     res
  end
 
- function get_obstacle_intersection(pos::Vector{T}, θ::AbstractVector{T}, arena::MazeArena{T},θ0::T, fov::T) where T <: Real
+ function get_obstacle_intersection(pos::Vector{T}, θ::AbstractVector{T}, arena::AbstractMazeArena{T},θ0::T, fov::T) where T <: Real
     # TODO Do distance to walls as well
     w,h = extent(arena)
     obstacle_points = get_obstacle_points(arena)
@@ -681,22 +720,24 @@ Return true if the point `p` is within the view cone given by angle `theta` and 
     wall_points = [(zero(T), zero(T)),(w, zero(T)), (w, h), (zero(T),h)]
     pps = Vector{Tuple{T,T}}(undef, length(θ))
     dms = zeros(T, length(θ))
+    oid = fill(0, length(θ))
 
     for (jj,_θ) in enumerate(θ)
         pp,d_min = get_intersection(pos, _θ, wall_points, θ0,fov)
-        for (rr,points) in zip(res, obstacle_points)
+        for (ii,(rr,points)) in enumerate(zip(res, obstacle_points))
             if any(rr)
                 _pp, _dm = get_intersection(pos, _θ, points, θ0,fov)
                 if _dm < d_min
                     pp = _pp
                     d_min = _dm
+                    oid[jj] = ii
                 end
             end
         end
         pps[jj] = pp
         dms[jj] = d_min 
     end
-    pps, dms
+    pps, dms, oid
  end
 
  function get_obstacle_intersection(pos::Vector{T}, θ::AbstractVector{T}, arena::Arena{T},θ0::T,fov::T) where T <: Real
@@ -704,10 +745,11 @@ Return true if the point `p` is within the view cone given by angle `theta` and 
     wall_points = [(zero(T), zero(T)),(w, zero(T)), (w, h), (zero(T),h)]
     pps = Vector{Tuple{T,T}}(undef, length(θ))
     dms = zeros(T, length(θ))
+    oid = fill(0,length(θ))
     for (jj,_θ) in enumerate(θ)
-        pps[jj],dms[jj]= get_intersection(pos, _θ, wall_points, θ0,fov)
+        pps[jj],dms[jj] = get_intersection(pos, _θ, wall_points, θ0,fov)
     end
-    pps, dms 
+    pps, dms,oid
  end
  
  """
@@ -895,6 +937,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     viewf = zeros(T, length(trial.angular_pref.μ),nsteps)
     head_direction = zeros(T, length(trial.angular_pref.μ), nsteps)
     movement = zeros(T,4,nsteps)  # up,down,left,right
+    texture = zeros(T, 16, nsteps)
     # the estimate distance from the agent to each of the view points
     # if we are encoding distance like this, we need a way to indicate unknown distance for points 
     # not in view
@@ -906,7 +949,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     head_direction[:,1] = trial.angular_pref(θ)
     inputs_outputs = union(trial.inputs, trial.outputs)
     compute_view = :view in inputs_outputs
-    compute_distance = :distance in inputs_outputs
+    compute_distance = (:distance in inputs_outputs) || (:texture in inputs_outputs)
 
     if compute_view
         θq,_ = get_view(position[:,1],θ, trial.arena;fov=fov,kwargs...)
@@ -918,7 +961,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
 
     if compute_distance
         θs = range(θ-fov/2, stop=θ+fov/2, length=size(dist,1))
-        xp, dp = get_obstacle_intersection(position[:,1], θs, arena, θ, fov)
+        xp, dp, texture[:,1] = get_texture(position[:,1], θs, arena, θ, fov)
         dist[:,1] .= dp./arena_diam
     end
 
@@ -950,7 +993,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
         end
         if compute_distance
             θs = range(θ-fov/2, stop=θ+fov/2, length=size(dist,1))
-            xp, dp = get_obstacle_intersection(position[:,k], θs, arena,θ, fov)
+            xp, dp,texture[:,k] = get_texture(position[:,k], θs, arena,θ, fov)
             dist[:,k] .= dp./arena_diam
         end
     end
@@ -970,7 +1013,8 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     
     position./=[trial.arena.ncols*trial.arena.colsize, trial.arena.nrows*trial.arena.rowsize]
     position .= 0.8*position .+ 0.05 # rescale from 0.05 to 0.85 to avoid saturation
-    position, head_direction, viewf, movement, dist
+    texture ./= maximum(texture)
+    position, head_direction, viewf, movement, dist, texture
 end
 
 function num_inputs(trialstruct::NavigationTrial)
@@ -988,6 +1032,9 @@ function num_inputs(trialstruct::NavigationTrial)
         n += 2
     end
     if :distance in trialstruct.inputs
+        n += 16
+    end
+    if :texture in trialstruct.inputs
         n += 16
     end
     n
@@ -1008,6 +1055,9 @@ function num_outputs(trialstruct::NavigationTrial)
         n += 2
     end
     if :distance in trialstruct.outputs
+        n += 16
+    end
+    if :texture in trialstruct.outputs
         n += 16
     end
     n
