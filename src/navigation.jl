@@ -883,45 +883,6 @@ Return true if the point `p` is within the view cone given by angle `theta` and 
     θs, obstructed_points_filtered
  end
 
-function get_view_old(pos::Vector{T}, θ::T,arena::Arena{T}) where T <: Real
-    # just project onto a circle which inscribes the arena
-    pos_center = get_center(arena)
-    r = sqrt(sum(pos_center.^2))
-    θr = [θ-π/4, θ+π/4]
-
-    # head direction
-    vp = [cos(θ) sin(θ)]
-
-    #fov
-    v = [cos.(θr) sin.(θr)]
-
-    # distance to border
-    dl = T(0.01)
-    xp = zeros(T, 2, 2)
-    for i in 1:2
-        xy = [pos...]
-        while norm(xy+dl*v[i,:]-pos_center) < r
-            xy .+= dl*v[i,:]
-        end
-        xp[i,:] .= xy
-    end
-
-    xq = xp .- pos_center
-    θq = atan.(xq[:,2], xq[:,1])
-    # make sure we get the smallest range
-    Qqm1 = extrema(θq)
-    Δ1 = Qqm1[2] - Qqm1[1]
-    θq2 = copy(θq)
-    θq2[θq2.<0] .+= 2π
-    Qqm2 = extrema(θq2)
-    Δ2 = Qqm2[2] - Qqm2[1]
-    if Δ1 < Δ2
-        return Qqm1
-    else
-        return Qqm2
-    end
-end
-
 function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/4), p_stay=T(1/3), p_hd=T(1/4), fov=T(π/3), kwargs...) where T <: Real
     # random initiarange(-T(π), stop=T(π), step=π/4)li
     arena = trial.arena
