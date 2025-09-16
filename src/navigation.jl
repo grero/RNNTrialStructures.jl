@@ -1034,6 +1034,9 @@ function num_inputs(trialstruct::NavigationTrial)
     if :distance in trialstruct.inputs
         n += 16
     end
+    if :texture in trialstruct.inputs
+        n += 16
+    end
     n
 end
 
@@ -1052,6 +1055,9 @@ function num_outputs(trialstruct::NavigationTrial)
         n += 2
     end
     if :distance in trialstruct.outputs
+        n += 16
+    end
+    if :texture in trialstruct.outputs
         n += 16
     end
     n
