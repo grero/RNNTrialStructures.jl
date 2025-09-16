@@ -128,6 +128,12 @@ end
 end
 
 @testset "Navigation" begin
+    arena = RNNTrialStructures.Arena(10,10,1.0f0,1.0f0)
+    pp, dp = RNNTrialStructures.get_obstacle_intersection([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], arena, 1.0471976f0, Float32(π/3))
+    @test length(pp) == length(dp) == 1
+    @test all(pp[1] .≈ (10.0f0, 9.407477f0))
+    @test dp[1] ≈ 9.814955f0
+
     arena = RNNTrialStructures.Arena(5,5,1.0f0, 1.0f0)
     @test RNNTrialStructures.signature(arena)  == 0xb0173a4c
 
