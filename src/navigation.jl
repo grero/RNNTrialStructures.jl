@@ -1013,7 +1013,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     
     position./=[trial.arena.ncols*trial.arena.colsize, trial.arena.nrows*trial.arena.rowsize]
     position .= 0.8*position .+ 0.05 # rescale from 0.05 to 0.85 to avoid saturation
-    texture ./= maximum(texture)
+    texture ./= max(maximum(texture),1.0)
     position, head_direction, viewf, movement, dist, texture
 end
 
