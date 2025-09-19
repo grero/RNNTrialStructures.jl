@@ -1141,7 +1141,7 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt; rng=Rando
             output = -1*ones(T, noutputs, max_nsteps, ntrials)
             output_mask = zeros(T, noutputs, max_nsteps, ntrials)
             for i in 1:ntrials
-                position, head_direction,viewfield,movement,dist = trial(;rng=rng,Δθstep=Δθstep,fov=fov, p_stay=p_stay, p_hd=p_hd)
+                position, head_direction,viewfield,movement,dist,texture = trial(;rng=rng,Δθstep=Δθstep,fov=fov, p_stay=p_stay, p_hd=p_hd)
                 offset = 0
                 if :view in trial.inputs
                     input[offset+1:offset+size(viewfield,1), 1:size(viewfield,2),i]  .= viewfield
@@ -1159,6 +1159,10 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt; rng=Rando
                     input[offset+1:offset+size(dist,1), 1:size(dist,2),i]  .= dist 
                     offset += size(dist,1)
                 end
+                if :texture in trial.inputs
+                    input[offset+1:offset+size(texture,1), 1:size(texture,2),i] .= texture 
+                    offset += size(texture,1)
+                end
 
                 offset = 0
                 if :position in trial.outputs
@@ -1172,6 +1176,10 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt; rng=Rando
                 if :distance in trial.outputs
                     output[offset+1:offset+size(dist,1), 1:size(dist,2),i]  .= dist 
                     offset += size(dist,1)
+                end
+                if :texture in trial.outputs
+                    output[offset+1:offset+size(texture,1), 1:size(texture,2),i] .= texture 
+                    offset += size(texture,1)
                 end
                 output_mask[:,1:size(position,2),i] .= one(T)
             end
