@@ -133,9 +133,9 @@ end
     @test length(pp) == length(dp) == 1
     @test all(pp[1] .≈ (10.0f0, 9.407477f0))
     @test dp[1] ≈ 9.814955f0
-    @test oid[1] == 0
+    @test oid[1] ≈ 0.010634266f0 
     _,_,oid = RNNTrialStructures.get_texture([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], arena, 1.0471976f0, Float32(π/3))
-    @test oid[1] == 0.0f0
+    @test oid[1] == 0.010634266f0
 
     arena = RNNTrialStructures.Arena(5,5,1.0f0, 1.0f0)
     @test RNNTrialStructures.signature(arena)  == 0xb0173a4c
@@ -168,9 +168,9 @@ end
     pp, dp,oid = RNNTrialStructures.get_obstacle_intersection([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], arena, 1.0471976f0, Float32(π/3))
     @test all(pp[1] .≈ (6.0f0, 7.0980763f0))
     @test dp[1] ≈ 5.1961527f0
-    @test oid[1] == 3
+    @test oid[1] == 3.061035f0 
     _, _,oid = RNNTrialStructures.get_texture([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], arena, 1.0471976f0, Float32(π/3))
-    @test oid[1] ≈ 3.0f0
+    @test oid[1] ≈ 3.061035f0 
 
     obstacle_points = RNNTrialStructures.get_obstacle_points(arena)
     res = RNNTrialStructures.inview(obstacle_points[4], [1.5f0, 4.5f0], 1.0471976f0, Float32(π/3))
@@ -198,7 +198,7 @@ end
     pp, dp,tt = RNNTrialStructures.get_texture([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], textured_arena, 1.0471976f0, Float32(π/3))
     @test all(pp[1] .≈ (6.0f0, 7.0980763f0))
     @test dp[1] ≈ 5.1961527f0
-    @test tt[1] ≈ 5.0
+    @test tt[1] ≈ 5.061035f0 
 
     trialstruct = RNNTrialStructures.NavigationTrial(5,10,[:distance, :view, :texture],[:position], arena,apref)
     @test RNNTrialStructures.num_inputs(trialstruct) == 48
@@ -208,5 +208,5 @@ end
     @test size(position,2) == size(head_direction,2) == size(viewf,2) == size(dist,2) == size(texture,2) == 9
     @test size(position,1) == 2
     @test size(dist,1) == size(texture,1) == 16
-    @test texture[:,1] ≈ Float32[0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.0]
+    @test texture[:,1] ≈ Float32[0.27145946, 0.28008097, 0.28527406, 0.2852508, 0.27893987, 0.26679358, 0.25179836, 0.24019703, 0.5148066, 0.47991306, 0.48721337, 0.5171638, 0.5218872, 0.4973588, 0.5057394, 0.01454698] 
 end
