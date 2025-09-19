@@ -41,8 +41,12 @@ function TexturedArena(arena::MazeArena{T}, texture_values::Vector{T}) where T <
 end
 
 function get_texture(pos::Vector{T}, θ::AbstractVector{T}, arena::TexturedArena{T}, θ0::T, fov::T) where T <: Real
-    pp,dm,oid = get_obstacle_intersection(pos, θ, arena, θ0, fov)
-    pp,dm,[_oid > 0 ? arena.textures[_oid] : zero(T) for _oid in oid]
+    pp,dm,doid = get_obstacle_intersection(pos, θ, arena, θ0, fov)
+    # oid returns a number whose 
+    oid = round.(Int64, doid) 
+    Δ = doid .- oid
+    doid .= Δ .+ [_oid > 0 ? arena.textures[_oid] : zero(T) for _oid in oid]
+    pp,dm,doid
 end
 
 function get_texture(pos::Vector{T}, θ::AbstractVector{T}, arena::MazeArena{T}, θ0::T, fov::T) where T <: Real
@@ -720,24 +724,27 @@ Return true if the point `p` is within the view cone given by angle `theta` and 
     wall_points = [(zero(T), zero(T)),(w, zero(T)), (w, h), (zero(T),h)]
     pps = Vector{Tuple{T,T}}(undef, length(θ))
     dms = zeros(T, length(θ))
+    dbs = zeros(T,length(θ))
     oid = fill(0, length(θ))
 
     for (jj,_θ) in enumerate(θ)
-        pp,d_min = get_intersection(pos, _θ, wall_points, θ0,fov)
+        pp,d_min,d_pp = get_intersection(pos, _θ, wall_points, θ0,fov)
         for (ii,(rr,points)) in enumerate(zip(res, obstacle_points))
             if any(rr)
-                _pp, _dm = get_intersection(pos, _θ, points, θ0,fov)
+                _pp, _dm,_d_pp = get_intersection(pos, _θ, points, θ0,fov)
                 if _dm < d_min
                     pp = _pp
                     d_min = _dm
+                    d_pp = _d_pp
                     oid[jj] = ii
                 end
             end
         end
         pps[jj] = pp
         dms[jj] = d_min 
+        dbs[jj] = oid[jj] + d_pp
     end
-    pps, dms, oid
+    pps, dms, dbs 
  end
 
  function get_obstacle_intersection(pos::Vector{T}, θ::AbstractVector{T}, arena::Arena{T},θ0::T,fov::T) where T <: Real
@@ -745,11 +752,11 @@ Return true if the point `p` is within the view cone given by angle `theta` and 
     wall_points = [(zero(T), zero(T)),(w, zero(T)), (w, h), (zero(T),h)]
     pps = Vector{Tuple{T,T}}(undef, length(θ))
     dms = zeros(T, length(θ))
-    oid = fill(0,length(θ))
+    dbs = zeros(T,length(θ))
     for (jj,_θ) in enumerate(θ)
-        pps[jj],dms[jj] = get_intersection(pos, _θ, wall_points, θ0,fov)
+        pps[jj],dms[jj],dbs[jj] = get_intersection(pos, _θ, wall_points, θ0,fov)
     end
-    pps, dms,oid
+    pps, dms, dbs
  end
  
  """
@@ -767,6 +774,9 @@ Return true if the point `p` is within the view cone given by angle `theta` and 
     d_min = Inf
     pp = (NaN, NaN)
     ϵ = eps(Float64)
+    db = zero(T)
+    d_pp = zero(T)
+    # keep track of the distance along the periphery of the obstacle
     for (i1,i2) in zip(circshift(1:np,1), 1:np)
         p1 = convert(Tuple{Float64, Float64}, points[i1])
         p2 = convert(Tuple{Float64,Float64}, points[i2])
@@ -791,10 +801,16 @@ Return true if the point `p` is within the view cone given by angle `theta` and 
             if d < d_min
                 d_min = d
                 pp = _pp
+                d_pp = db + norm(pp .- p1)
             end
         end
+        # distance from the first point to pp
+        db += norm(p2 .- p1)
     end
-    convert(Tuple{T,T}, pp), T(d_min)
+    # add some texture to the texture
+    # just to a sinusoid here with 5 periods
+    db = T(0.1) + T(0.1*sin(2π*5*d_pp/db))
+    convert(Tuple{T,T}, pp), T(d_min),db 
  end
 
  function get_view(pos::Vector{T}, θ::T, arena::MazeArena{T};fov::T=T(π/2)) where T <: Real
@@ -1013,7 +1029,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     
     position./=[trial.arena.ncols*trial.arena.colsize, trial.arena.nrows*trial.arena.rowsize]
     position .= 0.8*position .+ 0.05 # rescale from 0.05 to 0.85 to avoid saturation
-    texture ./= maximum(texture)
+    texture ./= max(maximum(texture),1.0)
     position, head_direction, viewf, movement, dist, texture
 end
 
@@ -1125,7 +1141,7 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt; rng=Rando
             output = -1*ones(T, noutputs, max_nsteps, ntrials)
             output_mask = zeros(T, noutputs, max_nsteps, ntrials)
             for i in 1:ntrials
-                position, head_direction,viewfield,movement,dist = trial(;rng=rng,Δθstep=Δθstep,fov=fov, p_stay=p_stay, p_hd=p_hd)
+                position, head_direction,viewfield,movement,dist,texture = trial(;rng=rng,Δθstep=Δθstep,fov=fov, p_stay=p_stay, p_hd=p_hd)
                 offset = 0
                 if :view in trial.inputs
                     input[offset+1:offset+size(viewfield,1), 1:size(viewfield,2),i]  .= viewfield
@@ -1143,6 +1159,10 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt; rng=Rando
                     input[offset+1:offset+size(dist,1), 1:size(dist,2),i]  .= dist 
                     offset += size(dist,1)
                 end
+                if :texture in trial.inputs
+                    input[offset+1:offset+size(texture,1), 1:size(texture,2),i] .= texture 
+                    offset += size(texture,1)
+                end
 
                 offset = 0
                 if :position in trial.outputs
@@ -1156,6 +1176,10 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt; rng=Rando
                 if :distance in trial.outputs
                     output[offset+1:offset+size(dist,1), 1:size(dist,2),i]  .= dist 
                     offset += size(dist,1)
+                end
+                if :texture in trial.outputs
+                    output[offset+1:offset+size(texture,1), 1:size(texture,2),i] .= texture 
+                    offset += size(texture,1)
                 end
                 output_mask[:,1:size(position,2),i] .= one(T)
             end
