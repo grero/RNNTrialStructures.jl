@@ -209,4 +209,13 @@ end
     @test size(position,1) == 2
     @test size(dist,1) == size(texture,1) == 16
     @test texture[:,1] ≈ Float32[0.27145946, 0.28008097, 0.28527406, 0.2852508, 0.27893987, 0.26679358, 0.25179836, 0.24019703, 0.5148066, 0.47991306, 0.48721337, 0.5171638, 0.5218872, 0.4973588, 0.5057394, 0.01454698] 
+
+    #trial generators
+    trial_iterator = RNNTrialStructures.generate_trials(trialstruct, 10, 20.f0;fov=Float32(π/3), hd_step=Float32(π/6),
+                                                                                p_stay=Float32(1/3), p_hd=0.8f0)
+    @test trial_iterator.args.fov ≈ Float32(π/3)
+    @test trial_iterator.args.Δθstep ≈ Float32(π/6)
+    @test trial_iterator.args.p_stay ≈ Float32(1/3)
+    @test trial_iterator.args.p_hd ≈ 0.8f0
+    @test trial_iterator.arghash == 0x804d3b6b
 end
