@@ -208,11 +208,14 @@ end
     @test RNNTrialStructures.num_inputs(trialstruct) == 48
 
     rng = StableRNG(1234)
-    position, head_direction, viewf, movement,dist,texture = trialstruct(;rng=rng) 
-    @test size(position,2) == size(head_direction,2) == size(viewf,2) == size(dist,2) == size(texture,2) == 9
+    position, head_direction, viewf, movement,dist,texture, gaze = trialstruct(;rng=rng) 
+    @test size(position,2) == size(head_direction,2) == size(viewf,2) == size(dist,2) == size(texture,2) == size(gaze,2) == 9
     @test size(position,1) == 2
     @test size(dist,1) == size(texture,1) == 16
     @test texture[:,1] ≈ Float32[0.27145946, 0.28008097, 0.28527406, 0.2852508, 0.27893987, 0.26679358, 0.25179836, 0.24019703, 0.5148066, 0.47991306, 0.48721337, 0.5171638, 0.5218872, 0.4973588, 0.5057394, 0.01454698] 
+    @test size(gaze,1) == 2*size(texture,1)
+    @test gaze[1:2:end,1] ≈ Float32[0.29019243, 0.30164924, 0.31367132, 0.32642886, 0.34012917, 0.3550312, 0.3714677, 0.3898774, 0.6, 0.6, 0.6, 0.6, 0.6, 0.60337794, 0.6856319, 1.0]
+    @test gaze[2:2:end,1] ≈ Float32[0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.22361982, 0.26657572, 0.30492753, 0.33969897, 0.37166628, 0.4, 0.4, 0.3490383]
 
     #trial generators
     trial_iterator = RNNTrialStructures.generate_trials(trialstruct, 10, 20.f0;fov=Float32(π/3), hd_step=Float32(π/6),
