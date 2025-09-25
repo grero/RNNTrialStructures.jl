@@ -386,8 +386,44 @@ end
 
 get_name(::Type{NavigationTrial{T}}) where T <: Real = :NavigationTrial
 
-function signature(trial::NavigationTrial{T},h=zero(UInt32)) where T <: Real
-    for q in [trial.min_num_steps, trial.max_num_steps, trial.inputs, trial.outputs]
+function sort_inputs(::Union{Type{NavigationTrial}, Type{NavigationTrial{T}}}, inputs) where T <: Real
+    ordered_inputs =  [:view, :head_direction, :movement, :distance, :texture]
+    inputs = sort(inputs, by=x->findfirst(ordered_inputs.==x))
+    inputs
+end
+
+function sort_outputs(::Type{NavigationTrial}, outputs)
+    ordered_outputs = [:position, :head_direction, :distance, :texture]
+    outputs = sort(outputs, by=x->findfirst(ordered_outputs.==x))
+end
+
+function Base.length(trial::NavigationTrial, input::Symbol)
+    l = 0
+    if input == :movement
+        l = 4
+    elseif input == :view
+        l = 16
+    elseif input == :texture
+        l = 16
+    elseif input == :distance
+        l = 16
+    elseif input == :head_direction
+        l = 16
+    end
+    l
+end
+
+function signature(trial::NavigationTrial{T},h=zero(UInt32);respect_order=true) where T <: Real
+    # TODO: The order of inputs and outputs should not matter here
+    #     : sort using the order that the trial function uses
+    if respect_order
+        inputs = trial.inputs
+        outputs = trial.outputs
+    else
+        inputs = sort_inputs(NavigationTrial, trial.inputs)
+        outputs = sort_outputs(NavigationTrial, outputs)
+    end
+    for q in [trial.min_num_steps, trial.max_num_steps, inputs, outputs]
         for ii in q
             h = crc32c(string(ii), h)
         end
