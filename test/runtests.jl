@@ -186,7 +186,11 @@ end
     @test RNNTrialStructures.num_inputs(trialstruct) == 32 
     @test RNNTrialStructures.num_outputs(trialstruct) == 2
 
-    @test RNNTrialStructures.signature(trialstruct) == 0x95b53b84 
+    @test RNNTrialStructures.signature(trialstruct;respect_order=false) == 0x35d52813
+    @test RNNTrialStructures.signature(trialstruct;respect_order=true) == 0x95b53b84
+    trialstructp = RNNTrialStructures.NavigationTrial(5,10,[:view, :distance],[:position], arena,apref)
+    # make sure the input order doesn't matter 
+    @test RNNTrialStructures.signature(trialstructp) == RNNTrialStructures.signature(trialstruct)
 
     textured_arena = RNNTrialStructures.TexturedArena(RNNTrialStructures.Arena(10,10, 1.0f0, 1.f0), arena.obstacles, [5.0f0, 6.0f0, 7.0f0, 8.0f0])
     @test textured_arena.textures == [5.0f0, 6.0f0, 7.0f0, 8.0f0]
@@ -217,5 +221,5 @@ end
     @test trial_iterator.args.Δθstep ≈ Float32(π/6)
     @test trial_iterator.args.p_stay ≈ Float32(1/3)
     @test trial_iterator.args.p_hd ≈ 0.8f0
-    @test trial_iterator.arghash == 0x804d3b6b
+    @test trial_iterator.arghash == 0xb103c546 
 end
