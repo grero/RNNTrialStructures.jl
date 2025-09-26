@@ -165,6 +165,15 @@ end
 
     apref = RNNTrialStructures.AngularPreference(collect(range(0.0f0, stop=2.0f0*π, length=16)), 5.0f0, 0.8f0);
 
+    y = zeros(Float32, 16,2)
+    y[8,1] = one(Float32)
+    y[10,2] = one(Float32)
+    θ = RNNTrialStructures.readout(apref, y[:,1])
+    @test θ ≈ apref.μ[8]
+    θ = RNNTrialStructures.readout(apref, y)
+    @test size(θ) == (2,)
+    @test θ ≈ [apref.μ[8], Float32(apref.μ[10]-2π)]
+
     pp, dp,oid = RNNTrialStructures.get_obstacle_intersection([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], arena, 1.0471976f0, Float32(π/3))
     @test all(pp[1] .≈ (6.0f0, 7.0980763f0))
     @test dp[1] ≈ 5.1961527f0
@@ -186,7 +195,11 @@ end
     @test RNNTrialStructures.num_inputs(trialstruct) == 32 
     @test RNNTrialStructures.num_outputs(trialstruct) == 2
 
-    @test RNNTrialStructures.signature(trialstruct) == 0x95b53b84 
+    @test RNNTrialStructures.signature(trialstruct;respect_order=false) == 0x35d52813
+    @test RNNTrialStructures.signature(trialstruct;respect_order=true) == 0x95b53b84
+    trialstructp = RNNTrialStructures.NavigationTrial(5,10,[:view, :distance],[:position], arena,apref)
+    # make sure the input order doesn't matter 
+    @test RNNTrialStructures.signature(trialstructp;respect_order=false) == RNNTrialStructures.signature(trialstruct;respect_order=false)
 
     textured_arena = RNNTrialStructures.TexturedArena(RNNTrialStructures.Arena(10,10, 1.0f0, 1.f0), arena.obstacles, [5.0f0, 6.0f0, 7.0f0, 8.0f0])
     @test textured_arena.textures == [5.0f0, 6.0f0, 7.0f0, 8.0f0]
@@ -204,9 +217,21 @@ end
     @test RNNTrialStructures.num_inputs(trialstruct) == 48
 
     rng = StableRNG(1234)
-    position, head_direction, viewf, movement,dist,texture = trialstruct(;rng=rng) 
-    @test size(position,2) == size(head_direction,2) == size(viewf,2) == size(dist,2) == size(texture,2) == 9
+    position, head_direction, viewf, movement,dist,texture, gaze = trialstruct(;rng=rng) 
+    @test size(position,2) == size(head_direction,2) == size(viewf,2) == size(dist,2) == size(texture,2) == size(gaze,2) == 9
     @test size(position,1) == 2
     @test size(dist,1) == size(texture,1) == 16
     @test texture[:,1] ≈ Float32[0.27145946, 0.28008097, 0.28527406, 0.2852508, 0.27893987, 0.26679358, 0.25179836, 0.24019703, 0.5148066, 0.47991306, 0.48721337, 0.5171638, 0.5218872, 0.4973588, 0.5057394, 0.01454698] 
+    @test size(gaze,1) == 2*size(texture,1)
+    @test gaze[1:2:end,1] ≈ Float32[0.29019243, 0.30164924, 0.31367132, 0.32642886, 0.34012917, 0.3550312, 0.3714677, 0.3898774, 0.6, 0.6, 0.6, 0.6, 0.6, 0.60337794, 0.6856319, 1.0]
+    @test gaze[2:2:end,1] ≈ Float32[0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.22361982, 0.26657572, 0.30492753, 0.33969897, 0.37166628, 0.4, 0.4, 0.3490383]
+
+    #trial generators
+    trial_iterator = RNNTrialStructures.generate_trials(trialstruct, 10, 20.f0;fov=Float32(π/3), hd_step=Float32(π/6),
+                                                                                p_stay=Float32(1/3), p_hd=0.8f0)
+    @test trial_iterator.args.fov ≈ Float32(π/3)
+    @test trial_iterator.args.Δθstep ≈ Float32(π/6)
+    @test trial_iterator.args.p_stay ≈ Float32(1/3)
+    @test trial_iterator.args.p_hd ≈ 0.8f0
+    @test trial_iterator.arghash == 0x804d3b6b 
 end
