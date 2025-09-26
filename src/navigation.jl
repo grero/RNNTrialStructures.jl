@@ -990,6 +990,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     head_direction = zeros(T, length(trial.angular_pref.μ), nsteps)
     movement = zeros(T,4,nsteps)  # up,down,left,right
     texture = zeros(T, 16, nsteps)
+    gaze = zeros(T, 2*16, nsteps) # flat dimensions to be consistent with the rest of the code
     # the estimate distance from the agent to each of the view points
     # if we are encoding distance like this, we need a way to indicate unknown distance for points 
     # not in view
@@ -1001,7 +1002,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     head_direction[:,1] = trial.angular_pref(θ)
     inputs_outputs = union(trial.inputs, trial.outputs)
     compute_view = :view in inputs_outputs
-    compute_distance = (:distance in inputs_outputs) || (:texture in inputs_outputs)
+    compute_distance = (:distance in inputs_outputs) || (:texture in inputs_outputs) || (:gaze in inputs_outputs)
 
     if compute_view
         θq,_ = get_view(position[:,1],θ, trial.arena;fov=fov,kwargs...)
@@ -1015,6 +1016,9 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
         θs = range(θ-fov/2, stop=θ+fov/2, length=size(dist,1))
         xp, dp, texture[:,1] = get_texture(position[:,1], θs, arena, θ, fov)
         dist[:,1] .= dp./arena_diam
+        for (j,_pp) in enumerate(xp)
+            gaze[2*(j-1)+1:2*j,1] .= _pp
+        end
     end
 
     Δθ = T.([-Δθstep, zero(T), Δθstep])
@@ -1047,26 +1051,43 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
             θs = range(θ-fov/2, stop=θ+fov/2, length=size(dist,1))
             xp, dp,texture[:,k] = get_texture(position[:,k], θs, arena,θ, fov)
             dist[:,k] .= dp./arena_diam
+            for (jj,_pp) in enumerate(xp)
+                gaze[2*(jj-1)+1:2*jj,k] .= _pp
+            end
         end
     end
     if compute_distance
         idx = findall(!isfinite, dist)
         for ii in idx
+            ii0 = ii.I[1]
             if ii.I[1] < size(dist,1)-2
+                ii2  = ii.I[1]+2
+                ii1 = ii.I[1]+1
                 dm = dist[ii.I[1]+2, ii.I[2]] - dist[ii.I[1]+1, ii.I[2]]
                 dist[ii] = dist[ii.I[1]+1,ii.I[2]] - dm
+                # TODO: Do the same for gaze
+                dg = gaze[2*(ii2-1)+1:2*(ii2)] .- gaze[2*(ii1-1)+1:2*ii1]
+                gaze[2*(ii0-1)+1:2*ii0,ii.I[2]] = gaze[2*(ii1-1)+1:2*ii1, ii.I[2]] .- dg
             else
+                ii2  = ii.I[1]-1
+                ii1 = ii.I[1]-2
                 dm = dist[ii.I[1]-1, ii.I[2]] - dist[ii.I[1]-2, ii.I[2]]
                 dist[ii] = dist[ii.I[1]-1,ii.I[2]] + dm
+
+                dg = gaze[2*(ii2-1)+1:2*(ii2)] .- gaze[2*(ii1-1)+1:2*ii1]
+                gaze[2*(ii0-1)+1:2*ii0,ii.I[2]] = gaze[2*(ii1-1)+1:2*ii1, ii.I[2]] .+ dg
             end
         end
     end
     # hack: because of finite precision, we sometimes get Infs in the distance. Use a crude interpolation for now
-    
-    position./=[trial.arena.ncols*trial.arena.colsize, trial.arena.nrows*trial.arena.rowsize]
+    #normalize position and gaze to the size of the maze 
+    position ./= [trial.arena.ncols*trial.arena.colsize, trial.arena.nrows*trial.arena.rowsize]
+    gaze[1:2:end,:] ./= trial.arena.ncols*trial.arena.colsize
+    gaze[2:2:end,:] ./= trial.arena.nrows*trial.arena.rowsize
+
     position .= 0.8*position .+ 0.05 # rescale from 0.05 to 0.85 to avoid saturation
     texture ./= max(maximum(texture),1.0)
-    position, head_direction, viewf, movement, dist, texture
+    position, head_direction, viewf, movement, dist, texture, gaze
 end
 
 function num_inputs(trialstruct::NavigationTrial)
@@ -1088,6 +1109,9 @@ function num_inputs(trialstruct::NavigationTrial)
     end
     if :texture in trialstruct.inputs
         n += 16
+    end
+    if :gaze in trialstruct.inputs
+        n += 32
     end
     n
 end
@@ -1111,6 +1135,9 @@ function num_outputs(trialstruct::NavigationTrial)
     end
     if :texture in trialstruct.outputs
         n += 16
+    end
+    if :gaze in trialstruct.outputs
+        n += 32
     end
     n
 end
@@ -1199,6 +1226,10 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt; rng=Rando
                     input[offset+1:offset+size(texture,1), 1:size(texture,2),i] .= texture 
                     offset += size(texture,1)
                 end
+                if :gaze in trial.inputs
+                    input[offset+1:offset+size(gaze,1), 1:size(gaze,2),i] .= texture 
+                    offset += size(gaze,1)
+                end
 
                 offset = 0
                 if :position in trial.outputs
@@ -1216,6 +1247,10 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt; rng=Rando
                 if :texture in trial.outputs
                     output[offset+1:offset+size(texture,1), 1:size(texture,2),i] .= texture 
                     offset += size(texture,1)
+                end
+                if :gaze in trial.outputs
+                    output[offset+1:offset+size(gaze,1), 1:size(gaze,2),i] .= gaze 
+                    offset += size(gaze,1)
                 end
                 output_mask[:,1:size(position,2),i] .= one(T)
             end
