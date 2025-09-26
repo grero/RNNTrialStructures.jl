@@ -165,6 +165,15 @@ end
 
     apref = RNNTrialStructures.AngularPreference(collect(range(0.0f0, stop=2.0f0*π, length=16)), 5.0f0, 0.8f0);
 
+    y = zeros(Float32, 16,2)
+    y[8,1] = one(Float32)
+    y[10,2] = one(Float32)
+    θ = RNNTrialStructures.readout(apref, y[:,1])
+    @test θ ≈ apref.μ[8]
+    θ = RNNTrialStructures.readout(apref, y)
+    @test size(θ) == (2,)
+    @test θ ≈ [apref.μ[8], Float32(apref.μ[10]-2π)]
+
     pp, dp,oid = RNNTrialStructures.get_obstacle_intersection([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], arena, 1.0471976f0, Float32(π/3))
     @test all(pp[1] .≈ (6.0f0, 7.0980763f0))
     @test dp[1] ≈ 5.1961527f0
