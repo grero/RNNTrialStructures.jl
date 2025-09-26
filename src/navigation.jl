@@ -421,7 +421,7 @@ function signature(trial::NavigationTrial{T},h=zero(UInt32);respect_order=true) 
         outputs = trial.outputs
     else
         inputs = sort_inputs(NavigationTrial, trial.inputs)
-        outputs = sort_outputs(NavigationTrial, outputs)
+        outputs = sort_outputs(NavigationTrial, trial.outputs)
     end
     for q in [trial.min_num_steps, trial.max_num_steps, inputs, outputs]
         for ii in q
