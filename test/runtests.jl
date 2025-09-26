@@ -190,7 +190,7 @@ end
     @test RNNTrialStructures.signature(trialstruct;respect_order=true) == 0x95b53b84
     trialstructp = RNNTrialStructures.NavigationTrial(5,10,[:view, :distance],[:position], arena,apref)
     # make sure the input order doesn't matter 
-    @test RNNTrialStructures.signature(trialstructp) == RNNTrialStructures.signature(trialstruct)
+    @test RNNTrialStructures.signature(trialstructp;respect_order=false) == RNNTrialStructures.signature(trialstruct;respect_order=false)
 
     textured_arena = RNNTrialStructures.TexturedArena(RNNTrialStructures.Arena(10,10, 1.0f0, 1.f0), arena.obstacles, [5.0f0, 6.0f0, 7.0f0, 8.0f0])
     @test textured_arena.textures == [5.0f0, 6.0f0, 7.0f0, 8.0f0]
