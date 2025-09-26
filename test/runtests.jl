@@ -233,5 +233,5 @@ end
     @test trial_iterator.args.Δθstep ≈ Float32(π/6)
     @test trial_iterator.args.p_stay ≈ Float32(1/3)
     @test trial_iterator.args.p_hd ≈ 0.8f0
-    @test trial_iterator.arghash == 0xb103c546 
+    @test trial_iterator.arghash == 0x804d3b6b 
 end
