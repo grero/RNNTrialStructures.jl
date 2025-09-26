@@ -1027,9 +1027,17 @@ function readout(trialstruct::RandomSequenceTrial{T}, x::Matrix{T},window=1) whe
     θ 
 end
 
-function readout(apref::AngularPreference{T},x::Vector{T}) where T <: Real
+function readout(apref::AngularPreference{T},x::AbstractVector{T}) where T <: Real
     μ = apref.μ
     a = sum(x.*cos.(μ))
     b = sum(x.*sin.(μ))
     atan(b,a)
+end
+
+function readout(apref::AngularPreference{T},x::Matrix{T}) where T <: Real
+    θ = zeros(T, size(x,2))
+    for (i,r) in enumerate(eachcol(x))
+        θ[i] = readout(apref, r)
+    end
+    θ
 end
