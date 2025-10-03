@@ -60,6 +60,13 @@ function get_texture(pos::Vector{T}, θ::AbstractVector{T}, arena::Arena{T}, θ0
     pp, dm, T.(oid)
 end
 
+function (arena::AbstractArena{T})(x::T,y::T, θ::AbstractVector{T}, θ0::T, fov::T) where T <: Real
+    # distance
+    pp, dm, tt = get_texture([x,y], θ, arena, θ0, fov)
+    θv = get_view([x,y],θ0, arena;fov=fov)
+    θv[1], dm, tt
+end
+
 """
     MazeArena()
 
