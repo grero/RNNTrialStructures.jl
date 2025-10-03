@@ -1262,7 +1262,7 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt; rng=Rando
             output = -1*ones(T, noutputs, max_nsteps, ntrials)
             output_mask = zeros(T, noutputs, max_nsteps, ntrials)
             for i in 1:ntrials
-                position, head_direction,viewfield,movement,dist,texture = trial(;rng=rng,Δθstep=Δθstep,fov=fov, p_stay=p_stay, p_hd=p_hd)
+                position, head_direction,viewfield,movement,dist,texture,gaze = trial(;rng=rng,Δθstep=Δθstep,fov=fov, p_stay=p_stay, p_hd=p_hd)
                 offset = 0
                 if :view in trial.inputs
                     input[offset+1:offset+size(viewfield,1), 1:size(viewfield,2),i]  .= viewfield
