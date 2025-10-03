@@ -260,6 +260,9 @@ function get_obstacle_points(arena::AbstractMazeArena{T}) where T <: Real
     points
 end
 
+get_num_obstacles(arena::Arena) = 0
+get_num_obstacles(arena::MazeArena) = length(arena.obstacles)
+
 """
     get_coordinate(i::Int64, j::Int64,arena::Arena{T};Δθ=π/4,rng=Random.default_rng()) where T <: Real
 
