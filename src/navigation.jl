@@ -1,4 +1,5 @@
 using LinearAlgebra
+using GeometryBasics: Point2f, Rect
 
 abstract type AbstractArena{T<:Real} end
 abstract type AbstractMazeArena{T<:Real} <: AbstractArena{T} end
