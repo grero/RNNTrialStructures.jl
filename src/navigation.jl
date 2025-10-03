@@ -392,13 +392,41 @@ function (vf::ViewField{T})(x::Int64, y::Int64,θ::T) where T <: Real
 
 end
 
-struct NavigationTrial{T<:Real} <: AbstractTrialStruct{T}
+abstract type AbstractNavigationTrial{T<:Real} <: AbstractTrialStruct{T} end
+
+struct NavigationTrial{T<:Real} <: AbstractNavigationTrial{T}
     min_num_steps::Int64
     max_num_steps::Int64
     inputs::Vector{Symbol}
     outputs::Vector{Symbol}
     arena::AbstractArena{T}
     angular_pref::AngularPreference{T}
+end
+
+struct ActiveNavigationTrial{T<:Real} <: AbstractNavigationTrial{T}
+    min_num_steps::Int64
+    max_num_steps::Int64
+    inputs::Vector{Symbol}
+    outputs::Vector{Symbol}
+    arena::AbstractArena{T}
+    angular_pref::AngularPreference{T}
+end
+
+"""
+Create a copy of `trialstruct` but replacing fields from `kwargs`
+"""
+function clone(trialstruct::NavigationTrial{T};kwargs...) where T <: Real
+    args = Any[]
+    qwargs = Dict(kwargs)
+    for k in fieldnames(NavigationTrial)
+        if k in keys(qwargs)
+            v = qwargs[k]
+        else
+            v = getfield(trialstruct, k)
+        end
+        push!(args, v)
+    end
+    NavigationTrial{T}(args...)
 end
 
 # fallback
