@@ -214,6 +214,25 @@ function check_step(i::Int64, j::Int64, arena::MazeArena{T}) where T <: Real
     possible_steps
 end
 
+function validate_step(i::Int64, j::Int64, vv::Vector{T}, arena::MazeArena{T}) where T <: Real
+    ss = [-1 1 0 0;
+           0 0 -1 1]
+    Δ = ss*vv
+    pp = Point2f(i,j) .+ Δ
+    did_hit = false
+    for obstacle in arena.obstacles
+        rr = Rect(Point2f.(obstacle))
+        if pp in rr 
+            did_hit = true
+            break
+        end
+    end
+    if did_hit
+        return (zero(T), zero(T))
+    end
+    return Δ
+end
+
 function get_obstacle_points(arena::AbstractMazeArena{T}) where T <: Real
     ncols = arena.ncols
     colsize = arena.colsize
