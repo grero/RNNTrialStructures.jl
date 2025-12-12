@@ -112,6 +112,13 @@ end
 
 extent(arena::AbstractArena)  = (arena.ncols*arena.colsize, arena.nrows*arena.rowsize)
 
+function assign_bin((x,y), arena::MazeArena)
+    width, height = extent(arena)
+    i = round(Int64, floor(y/arena.rowsize))
+    j = round(Int64, floor(x/arena.colsize))
+    j,i
+end
+
 """
 Return a path starting from the middel and moving in a spiral outwards
 """
