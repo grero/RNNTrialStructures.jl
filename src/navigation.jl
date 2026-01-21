@@ -711,7 +711,6 @@ end
     x,y = po
     a = (x-x0)*(x1-x0) + (y-y0)*(y1-y0)
     a /= (x1-x0)^2 + (y1-y0)^2
-    a = max(min(a,1),0)
     (x0 + a*(x1-x0), y0+a*(y1-y0))
  end
 
