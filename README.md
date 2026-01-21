@@ -44,6 +44,7 @@ max_num_steps = 50
  trialstruct = RNNTrialStructures.NavigationTrial(min_num_steps,max_num_steps,[:distance, :movement, :texture], [:conjunction], arena,apref)
 
 ```
+Other possible values for the outputs are `:position` and `:gaze`.
 
 ![Illustration of the four pillar maze](assets/default_arena_layout.png)
 Illustration of the default four pillar maze.
