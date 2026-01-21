@@ -702,6 +702,9 @@ end
     return Qqm
  end
 
+ """
+ Find the closest point from `po` to the line from `p0` to `p1`
+ """
  function find_line_intersection(po, p0, p1)
     x0,y0 = p0
     x1,y1 = p1
