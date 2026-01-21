@@ -23,3 +23,24 @@ trialstruct = RNNTrialStructures.MultipleAngleTrial(input_onset,
                                                    input_duration, 
                                                    [delay1, delay2], output_duration, 2, dt, apref)
 ```
+
+### Navigation trial
+
+Create a trial structure in which an agent is passively moved around a defined arena.
+
+```julia
+using RNNTrialStructures
+
+apref = RNNTrialStructures.AngularPreference(collect(range(0.0f0, stop=2.0f0*π, length=32)), 4.1f0, 0.8f0)
+
+# default maze with 10 x 10 bin floor and 4 pillars.
+arena = RNNTrialStructures.MazeArena()
+
+# each trial consists of a random number of steps, between min_num_steps and max_num_steps.
+min_num_steps = 20
+max_num_steps = 50
+# the inputs are distance to the walls of the arena along 16 rays spanning the field of view of the agent, the self-movement from one time step to the next and the texture of the walls where the 16 gaze rays intersect the maze. The output is the conjunction of the agent's location in the arena and the location of the intersection of its centrial gaze ray.
+ trialstruct = RNNTrialStructures.NavigationTrial(min_num_steps,max_num_steps,[:distance, :movement, :texture], [:conjunction], arena,apref)
+
+```
+
