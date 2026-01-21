@@ -4,6 +4,7 @@
 [![codecov](https://codecov.io/gh/grero/RNNTrialStructures.jl/graph/badge.svg?token=4LN4RIG3eX)](https://codecov.io/gh/grero/RNNTrialStructures.jl)
 ## Usage
 
+### Multiple angular input trial
 Create an instance of a trial structure where two angles are presented with a 500 ms delay between them. These two angles need to be reported back after an additional delay of 500 ms.
 
 ```julia
@@ -44,3 +45,5 @@ max_num_steps = 50
 
 ```
 
+![Illustration of the four pillar maze](assets/default_arena_layout.png)
+Illustration of the default four pillar maze.
