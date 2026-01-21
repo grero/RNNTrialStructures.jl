@@ -112,11 +112,136 @@ end
 
 extent(arena::AbstractArena)  = (arena.ncols*arena.colsize, arena.nrows*arena.rowsize)
 
-function assign_bin((x,y), arena::MazeArena)
-    width, height = extent(arena)
-    i = round(Int64, floor(y/arena.rowsize))
-    j = round(Int64, floor(x/arena.colsize))
+function assign_bin(x,y, arena::Arena;binsize=arena.colsize)
+    i = round(Int64, floor(y/binsize))+1
+    j = round(Int64, floor(x/binsize))+1
     j,i
+end
+
+function assign_bin(x,y, arena::MazeArena;binsize=arena.colsize)
+    i = round(Int64, floor(y/binsize))+1
+    j = round(Int64, floor(x/binsize))+1
+    nn = num_floor_bins(arena;binsize=binsize)
+    # TODO: Remove the bins occupied by the pillars
+    xx,yy = (0.0, 0.0)
+    k = 1
+    finished = false
+    while xx < arena.ncols*arena.colsize
+        j2 = round(Int64, floor(xx/binsize))+1
+        jj = round(Int64,floor(xx/arena.colsize))+1
+        yy = 0.0
+        while yy < arena.nrows*arena.rowsize
+            ii = round(Int64,floor(yy/arena.rowsize))+1
+            i2 = round(Int64, floor(yy/binsize))+1
+            if (j2,i2) == (j,i)
+                finished = true
+                break
+            end
+            do_include = true
+            for pp in arena.obstacles
+                if (jj,ii) in pp
+                    do_include = false
+                    break
+                end
+            end
+            if do_include
+                k += 1
+            end
+            yy += binsize
+        end
+        if finished
+            break
+        end
+             
+        xx += binsize
+    end
+    j,i, k
+end
+
+function wall_bins(arena::AbstractArena)
+    #left wall
+    bins = [(0,i) for i in 1:arena.nrows]
+    # top wall
+    append!(bins, [(j,arena.nrows) for j in 1:arena.ncols])
+    # right wall
+    append!(bins, [(arena.ncols,j) for j in arena.nrows:-1:1])
+    # bottom wall
+    append!(bins, [(i, 0) for i in arena.ncols:-1:1])
+    reverse(bins)
+end
+
+function surface_bins(arena::MazeArena)
+    wbins = wall_bins(arena)
+    for ob in arena.obstacles
+        # TODO: Treat the sides differently
+        append!(wbins, ob)
+    end
+    wbins
+end
+
+function assign_surface_bin(x,y, arena;binsize=arena.colsize,binsize_wall=binsize)
+    #loop through each surface
+    xm = arena.ncols*arena.colsize
+    ym = arena.nrows*arena.rowsize
+    dm = Inf
+    pm = (0.0, 0.0)
+    lm = 0
+    # walls
+    xx = [0.0, 0.0, xm, xm]
+    yy = [0.0, ym, ym, 0.0]
+    pp = collect(zip(xx,yy))
+    offset = 0
+    for (p1,p2) in zip(pp, circshift(pp,-1))
+        pl = find_line_intersection((x,y), p1,p2)
+        _dl = norm((x,y) .- pl)
+        if _dl <  dm
+            dm = _dl
+            pm = pl
+            lm = round(Int64, floor((offset + norm(pl .- p1))./binsize_wall))+1
+        end
+        offset += round(Int64, floor(norm(p2 .- p1)/binsize_wall))
+    end
+    # pillars
+    for pp in get_obstacle_points(arena)
+        for (p1,p2) in zip(pp, circshift(pp,-1))
+            pl = find_line_intersection((x,y), p1,p2)
+            _dl = norm((x,y) .- pl)
+            if _dl <  dm
+                dm = _dl
+                pm = pl
+                # TODO: This doesn't work if the binsize is non-uniform
+                lm = offset+round(Int64, floor((norm(pl .- p1))./binsize))+1
+            end
+            offset += round(Int64, floor(norm(p2 .- p1)/binsize))
+        end
+    end
+    pm, dm, lm
+end
+
+function num_surface_bins(arena;binsize=arena.colsize, binsize_wall=binsize)
+    nn = 2*round(Int64, floor(arena.ncols*arena.colsize/binsize_wall))
+    nn += 2*round(Int64, floor(arena.nrows*arena.rowsize/binsize_wall))
+    opoints = get_obstacle_points(arena)
+    for pp in opoints
+        ll = 0
+        for (p1,p2) in zip(pp, circshift(pp,-1))
+            ll += norm(p2 .- p1)
+        end
+        nn += round(Int64,ll/binsize)
+    end
+    nn
+end
+
+function num_floor_bins(arena::Arena;binsize=arena.colsize)
+    nn = round(Int64, arena.ncols*arena.colsize*arena.nrows*arena.rowsize/binsize^2)
+end
+
+function num_floor_bins(arena::MazeArena;binsize=arena.colsize)
+    nn = round(Int64, arena.ncols*arena.colsize*arena.nrows*arena.rowsize/binsize^2)
+    for pp in arena.obstacles
+        nn -= round(Int64,length(pp)*arena.colsize*arena.rowsize/binsize^2)
+    end
+    nn
 end
 
 """
