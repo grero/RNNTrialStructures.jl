@@ -1410,15 +1410,15 @@ function performance(trialstruct::NavigationTrial{T}, output::Array{T,3}, output
     ppq./nq 
 end
 
-function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt; rng=Random.default_rng(), rseed=1, hd_step=T(π/4), fov=T(π/2),p_stay=T(1/3), p_hd=T(1/4)) where T <: Real
+function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt; rng=Random.default_rng(), rseed=1, hd_step=T(π/4), fov=T(π/2),p_stay=T(1/3), p_hd=T(1/4),binsize=trial.arena.colsize, binsize_wall=binsize) where T <: Real
     Δθstep = T(hd_step)
     p_stay = T(p_stay)
     dt = T(dt)
     p_hd = T(p_hd)
     fov = T(fov)
     args = [(:ntrials, ntrials),(:dt, dt), (:rng, rng), (:rseed, rseed), (:Δθstep, Δθstep),
-            (:fov, fov),(:p_stay, p_stay),(:p_hd, p_hd)]
-    defaults = Dict{Symbol,Any}(:Δθstep=>T(π/4), :fov=>T(π/2),:p_stay=>T(1/3),:p_hd=>T(1/4))
+            (:fov, fov),(:p_stay, p_stay),(:p_hd, p_hd),(:binsize,binsize),(:binsize_wall, binsize_wall)]
+    defaults = Dict{Symbol,Any}(:Δθstep=>T(π/4), :fov=>T(π/2),:p_stay=>T(1/3),:p_hd=>T(1/4), :binsize=>trial.arena.colsize, :binsize_wall=>trial.arena.colsize)
     h = signature(trial)
     for (k,v) in args
         if !(k in keys(defaults)) || v != defaults[k]
@@ -1428,7 +1428,7 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt; rng=Rando
     pushfirst!(args, (:trialstruct, trial))
     Random.seed!(rng, rseed)
     ninputs = num_inputs(trial)
-    noutputs = num_outputs(trial)
+    noutputs = num_outputs(trial;binsize=binsize,binsize_wall=binsize_wall)
     max_nsteps = trial.max_num_steps
     TrialIterator(
         function data_provider()
@@ -1436,7 +1436,7 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt; rng=Rando
             output = -1*ones(T, noutputs, max_nsteps, ntrials)
             output_mask = zeros(T, noutputs, max_nsteps, ntrials)
             for i in 1:ntrials
-                position, head_direction,viewfield,movement,dist,texture,gaze = trial(;rng=rng,Δθstep=Δθstep,fov=fov, p_stay=p_stay, p_hd=p_hd)
+                position, head_direction,viewfield,movement,dist,texture,gaze,conjunction,gazem = trial(;rng=rng,Δθstep=Δθstep,fov=fov, p_stay=p_stay, p_hd=p_hd,binsize=binsize, binsize_wall=binsize_wall)
                 offset = 0
                 if :view in trial.inputs
                     input[offset+1:offset+size(viewfield,1), 1:size(viewfield,2),i]  .= viewfield
@@ -1481,8 +1481,11 @@ function generate_trials(trial::NavigationTrial{T}, ntrials::Int64,dt; rng=Rando
                     offset += size(texture,1)
                 end
                 if :gaze in trial.outputs
-                    output[offset+1:offset+size(gaze,1), 1:size(gaze,2),i] .= gaze 
-                    offset += size(gaze,1)
+                    output[offset+1:offset+size(gazem,1), 1:size(gaze,2),i] .= gazem
+                    offset += size(gazem,1)
+                end
+                if :conjunction in trial.outputs
+                    output[offset+1:offset+size(conjunction,1), 1:size(conjunction,2), i] .= conjunction
                 end
                 output_mask[:,1:size(position,2),i] .= one(T)
             end
