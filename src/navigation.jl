@@ -585,7 +585,7 @@ function sort_inputs(::Union{Type{NavigationTrial}, Type{NavigationTrial{T}}}, i
 end
 
 function sort_outputs(::Type{NavigationTrial}, outputs)
-    ordered_outputs = [:position, :head_direction, :distance, :texture]
+    ordered_outputs = [:position, :head_direction, :distance, :texture, :gaze, :conjuction]
     outputs = sort(outputs, by=x->findfirst(ordered_outputs.==x))
 end
 
