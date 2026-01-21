@@ -400,6 +400,8 @@ function get_obstacle_points(arena::AbstractMazeArena{T}) where T <: Real
     points
 end
 
+get_obstacle_points(arena::Arena{T}) where T = Tuple{T,T}[]
+
 get_num_obstacles(arena::Arena) = 0
 get_num_obstacles(arena::MazeArena) = length(arena.obstacles)
 
