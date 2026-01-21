@@ -1171,12 +1171,18 @@ Return true if the point `p` is within the view cone given by angle `theta` and 
     θs, obstructed_points_filtered
  end
 
-function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/4), p_stay=T(1/3), p_hd=T(1/4), fov=T(π/3), kwargs...) where T <: Real
+function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/4), p_stay=T(1/3), p_hd=T(1/4), fov=T(π/3), do_rescale=true, binsize=1.0, binsize_wall=binsize, kwargs...) where T <: Real
     # random initiarange(-T(π), stop=T(π), step=π/4)li
     arena = trial.arena
+    n_place_bins = num_floor_bins(arena;binsize=binsize) 
+    n_gaze_bins = num_surface_bins(arena;binsize=binsize,binsize_wall=binsize_wall)
+    # recompute based on binsize
+    ncols = round(Int64, arena.ncols*arena.colsize/binsize)
+    nrows = round(Int64, arena.nrows*arena.rowsize/binsize)
     arena_diam = sqrt(sum(abs2, extent(arena)))
     θf = range(zero(T), stop=T(2π), step=T(π/4))
     nsteps = rand(rng, trial.min_num_steps:trial.max_num_steps)
+    conjunction = fill(T(0.2), n_gaze_bins, n_place_bins, nsteps)
     position = zeros(T,2,nsteps)
     (i,j) = get_coordinate(trial.arena;rng=rng) 
     position[:,1] = get_position(i,j,trial.arena)
@@ -1185,6 +1191,7 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     movement = zeros(T,4,nsteps)  # up,down,left,right
     texture = zeros(T, 16, nsteps)
     gaze = zeros(T, 2*16, nsteps) # flat dimensions to be consistent with the rest of the code
+    gazem = zeros(T, 2, nsteps) # mean gaze
     # the estimate distance from the agent to each of the view points
     # if we are encoding distance like this, we need a way to indicate unknown distance for points 
     # not in view
@@ -1213,8 +1220,14 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
         for (j,_pp) in enumerate(xp)
             gaze[2*(j-1)+1:2*j,1] .= _pp
         end
+        # digitize central gaze
+        gg = dropdims(mean(reshape(gaze[:,1], 2, 16)[:,8:9],dims=2),dims=2)
+        gidx = assign_surface_bin(gg...,arena;binsize=binsize,binsize_wall=binsize_wall)[3]
+        _pidx,pidx = assign_bin(position[:,1]...,arena;binsize=binsize)
+        conjunction[gidx,pidx,1] = T(0.8)
+        gazem[:,1] = gg
     end
-
+    
     Δθ = T.([-Δθstep, zero(T), Δθstep])
     for k in 2:nsteps
         θ += get_head_direction(Δθstep,θ;rng=rng,p_stay=p_stay) 
@@ -1248,6 +1261,16 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
             for (jj,_pp) in enumerate(xp)
                 gaze[2*(jj-1)+1:2*jj,k] .= _pp
             end
+            gg = dropdims(mean(reshape(gaze[:,k], 2, 16)[:,8:9],dims=2),dims=2)
+            _,dm, gidx = assign_surface_bin(gg...,arena;binsize=binsize,binsize_wall=binsize_wall)
+            _pidx,pidx = assign_bin(position[:,k]...,arena;binsize=binsize)
+            # convert to linear index
+            if gidx > n_gaze_bins
+                @show dm
+            end
+
+            conjunction[gidx,pidx,k] = T(0.8)
+            gazem[:,k] = gg
         end
     end
     if compute_distance
@@ -1275,13 +1298,19 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     end
     # hack: because of finite precision, we sometimes get Infs in the distance. Use a crude interpolation for now
     #normalize position and gaze to the size of the maze 
-    position ./= [trial.arena.ncols*trial.arena.colsize, trial.arena.nrows*trial.arena.rowsize]
-    gaze[1:2:end,:] ./= trial.arena.ncols*trial.arena.colsize
-    gaze[2:2:end,:] ./= trial.arena.nrows*trial.arena.rowsize
+    if do_rescale
+        position ./= [trial.arena.ncols*trial.arena.colsize, trial.arena.nrows*trial.arena.rowsize]
+        position .= 0.8*position .+ 0.05 # rescale from 0.05 to 0.85 to avoid saturation
+        gaze[1:2:end,:] ./= trial.arena.ncols*trial.arena.colsize
+        gaze[2:2:end,:] ./= trial.arena.nrows*trial.arena.rowsize
+        gazem ./= [trial.arena.ncols*trial.arena.colsize, trial.arena.nrows*trial.arena.rowsize]
+        gazem .= 0.8*gazem .+ 0.05
 
-    position .= 0.8*position .+ 0.05 # rescale from 0.05 to 0.85 to avoid saturation
-    texture ./= max(maximum(texture),1.0)
-    position, head_direction, viewf, movement, dist, texture, gaze
+
+        texture ./= max(maximum(texture),1.0)
+    end
+    conjunction = reshape(conjunction, size(conjunction,1)*size(conjunction,2), size(conjunction,3))
+    position, head_direction, viewf, movement, dist, texture, gaze, conjunction, gazem
 end
 
 function num_inputs(trialstruct::NavigationTrial)
@@ -1310,8 +1339,17 @@ function num_inputs(trialstruct::NavigationTrial)
     n
 end
 
-function num_outputs(trialstruct::NavigationTrial)
+function num_outputs(trialstruct::NavigationTrial;binsize=trialstruct.arena.colsize, binsize_wall=binsize)
     n = 0
+    if :conjunction in trialstruct.outputs
+        #TODO: What discretization to use here 
+        # We can use the same discretization that we use for the floor
+        # For instance, if the floor uses 10 × 10 bins, we use 10 bins for
+        # each of the walls, and I guess two bins for the pillars
+        n_surface = num_surface_bins(trialstruct.arena;binsize=binsize,binsize_wall=binsize_wall)
+        n_place = num_floor_bins(trialstruct.arena;binsize=binsize)
+        n += n_surface*n_place
+    end
     if :head_direction in trialstruct.outputs
         n += length(trialstruct.angular_pref.μ)
     end
@@ -1331,7 +1369,7 @@ function num_outputs(trialstruct::NavigationTrial)
         n += 16
     end
     if :gaze in trialstruct.outputs
-        n += 32
+        n += 2 # output gaze is only the main direction
     end
     n
 end
