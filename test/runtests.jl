@@ -127,6 +127,29 @@ end
     end
 end
 
+@testset "Arena bin assignment" begin
+    arena = RNNTrialStructures.Arena(10,10,1.0f0,1.0f0)
+    j,i = RNNTrialStructures.assign_bin(0.5, 0.5, arena)
+    @test (j,i) == (1,1)
+    # larger bins
+    j,i = RNNTrialStructures.assign_bin(1.5, 1.5, arena;binsize=2.0)
+    @test (j,i) == (1,1)
+
+    nn = RNNTrialStructures.num_floor_bins(arena)
+    @test nn == 100
+    nn = RNNTrialStructures.num_floor_bins(arena;binsize=2.0)
+    @test nn == 25
+end
+
+@testset "Obstacles" begin
+    arena = RNNTrialStructures.Arena(10,10,1.0f0,1.0f0)
+    ob_points = RNNTrialStructures.get_obstacle_points(arena)
+    @test ob_points == Tuple{Float32, Float32}[]
+
+    n_obstacles = RNNTrialStructures.get_num_obstacles(arena)
+    @test n_obstacles == 0
+end
+
 @testset "Navigation" begin
     arena = RNNTrialStructures.Arena(10,10,1.0f0,1.0f0)
     pp, dp,oid = RNNTrialStructures.get_obstacle_intersection([1.5f0, 4.5f0], [1.0471976f0-Float32(π/3)/2], arena, 1.0471976f0, Float32(π/3))
@@ -217,7 +240,7 @@ end
     @test RNNTrialStructures.num_inputs(trialstruct) == 48
 
     rng = StableRNG(1234)
-    position, head_direction, viewf, movement,dist,texture, gaze = trialstruct(;rng=rng) 
+    position, head_direction, viewf, movement,dist,texture, gaze,conjunction,gazem = trialstruct(;rng=rng) 
     @test size(position,2) == size(head_direction,2) == size(viewf,2) == size(dist,2) == size(texture,2) == size(gaze,2) == 9
     @test size(position,1) == 2
     @test size(dist,1) == size(texture,1) == 16
@@ -225,6 +248,11 @@ end
     @test size(gaze,1) == 2*size(texture,1)
     @test gaze[1:2:end,1] ≈ Float32[0.29019243, 0.30164924, 0.31367132, 0.32642886, 0.34012917, 0.3550312, 0.3714677, 0.3898774, 0.6, 0.6, 0.6, 0.6, 0.6, 0.60337794, 0.6856319, 1.0]
     @test gaze[2:2:end,1] ≈ Float32[0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.22361982, 0.26657572, 0.30492753, 0.33969897, 0.37166628, 0.4, 0.4, 0.3490383]
+
+    @test size(gazem,1) == 2
+    @test size(gazem,2) == size(position,2)
+    @test size(conjunction,1) == 6048
+    @test size(conjunction,2) == size(position,2)
 
     #trial generators
     trial_iterator = RNNTrialStructures.generate_trials(trialstruct, 10, 20.f0;fov=Float32(π/3), hd_step=Float32(π/6),
@@ -234,4 +262,28 @@ end
     @test trial_iterator.args.p_stay ≈ Float32(1/3)
     @test trial_iterator.args.p_hd ≈ 0.8f0
     @test trial_iterator.arghash == 0x804d3b6b 
+
+    # conjunction output
+    trialstruct = RNNTrialStructures.NavigationTrial(5,10,[:distance, :view, :texture],[:conjunction], arena,apref)
+
+    n_out = RNNTrialStructures.num_outputs(trialstruct)
+    @test n_out == 6048
+    n_out = RNNTrialStructures.num_outputs(trialstruct;binsize=2.0)
+    @test n_out == 756
+    n_out = RNNTrialStructures.num_outputs(trialstruct;binsize=2.0,binsize_wall=5.0)
+    @test n_out == 504
+
+    #clone
+    trialstruct2 = RNNTrialStructures.clone(trialstruct, outputs=[:position, :gaze])
+    @test trialstruct2.outputs == [:position, :gaze]
+    qq = true
+    for tt in fieldnames(RNNTrialStructures.NavigationTrial)
+        if tt != :outputs
+            qq = qq && getfield(trialstruct,tt) == getfield(trialstruct2,tt)
+            if qq == false
+                break
+            end
+        end
+    end
+    @test qq
 end

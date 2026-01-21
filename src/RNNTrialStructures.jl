@@ -32,6 +32,33 @@ function Base.iterate(trial::TrialIterator)
     trial.data_provider(),0
 end
 
+function clone(trial_iterator::TrialIterator;replacements::Dict=Dict(:Δθstep=>:hd_step), kwargs...)
+    _trialstruct = trial_iterator.args.trialstruct
+        trialstruct2 = RNNTrialStructures.clone(_trialstruct;kwargs...)
+    # indicate where gaze starts
+    # this is a bit hackish
+    args = Any[]
+    kwargs2 = Dict()
+    for k in keys(trial_iterator.args)
+        v = getfield(trial_iterator.args,k)
+        if k == :trialstruct
+            continue
+        end
+        if (k == :ntrials) || (k == :dt)
+            push!(args, v)
+        else
+            # another hack
+            if k in keys(replacements)
+                k = replacements[k]
+            end
+            kwargs2[k] = v
+        end
+    end
+    trial_iterator2 = RNNTrialStructures.generate_trials(trialstruct2, args...;kwargs2...)
+    return trial_iterator2
+end
+
+
 function generate_trials(trialstruct::MultipleAngleTrial{T}, ntrials::Int64;randomize_go_cue=true, randomize_grace_period=false, go_cue_onset_min::T=zero(T), go_cue_onset_max::T=go_cue_onset_min,
                                                       grace_period_min::T=zero(T), grace_period_max=grace_period_min,
                                                       post_cue_multiplier::T=T(2.0), pre_cue_multiplier::T=one(T),stim_onset_min::Vector{T}=zeros(T,trialstruct.nangles), stim_onset_max::Vector{T}=stim_onset_min,
