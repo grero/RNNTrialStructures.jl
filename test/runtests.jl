@@ -272,4 +272,18 @@ end
     @test n_out == 756
     n_out = RNNTrialStructures.num_outputs(trialstruct;binsize=2.0,binsize_wall=5.0)
     @test n_out == 504
+
+    #clone
+    trialstruct2 = RNNTrialStructures.clone(trialstruct, outputs=[:position, :gaze])
+    @test trialstruct2.outputs == [:position, :gaze]
+    qq = true
+    for tt in fieldnames(RNNTrialStructures.NavigationTrial)
+        if tt != :outputs
+            qq = qq && getfield(trialstruct,tt) == getfield(trialstruct2,tt)
+            if qq == false
+                break
+            end
+        end
+    end
+    @test qq
 end
