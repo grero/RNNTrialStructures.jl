@@ -197,7 +197,7 @@ function assign_surface_bin(x,y, arena;binsize=arena.colsize,binsize_wall=binsiz
         if _dl <  dm
             dm = _dl
             pm = pl
-            lm = round(Int64, floor((offset + norm(pl .- p1))./binsize_wall))+1
+            lm = offset+round(Int64, floor((norm(pl .- p1))./binsize_wall))+1
         end
         offset += round(Int64, floor(norm(p2 .- p1)/binsize_wall))
     end
@@ -205,14 +205,16 @@ function assign_surface_bin(x,y, arena;binsize=arena.colsize,binsize_wall=binsiz
     for pp in get_obstacle_points(arena)
         for (p1,p2) in zip(pp, circshift(pp,-1))
             pl = find_line_intersection((x,y), p1,p2)
-            _dl = norm((x,y) .- pl)
-            if _dl <  dm
-                dm = _dl
-                pm = pl
-                # TODO: This doesn't work if the binsize is non-uniform
-                lm = offset+round(Int64, floor((norm(pl .- p1))./binsize))+1
+            if (p1 <= pl <= p2) || (p2 <= pl <= p1)
+                _dl = norm((x,y) .- pl)
+                if _dl <  dm
+                    dm = _dl
+                    pm = pl
+                    # TODO: This doesn't work if the binsize is non-uniform
+                    lm = offset + round(Int64, floor((norm(pl .- p1))./binsize))+1
+                end
+                offset += round(Int64, floor(norm(p2 .- p1)/binsize))
             end
-            offset += round(Int64, floor(norm(p2 .- p1)/binsize))
         end
     end
     pm, dm, lm
