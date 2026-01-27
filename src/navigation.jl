@@ -213,8 +213,8 @@ function assign_surface_bin(x,y, arena;binsize=arena.colsize,binsize_wall=binsiz
                     # TODO: This doesn't work if the binsize is non-uniform
                     lm = offset + round(Int64, floor((norm(pl .- p1))./binsize))+1
                 end
-                offset += round(Int64, floor(norm(p2 .- p1)/binsize))
             end
+            offset += round(Int64, floor(norm(p2 .- p1)/binsize))
         end
     end
     pm, dm, lm
