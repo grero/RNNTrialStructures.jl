@@ -115,7 +115,7 @@ extent(arena::AbstractArena)  = (arena.ncols*arena.colsize, arena.nrows*arena.ro
 function assign_bin(x,y, arena::Arena;binsize=arena.colsize)
     i = round(Int64, floor(y/binsize))+1
     j = round(Int64, floor(x/binsize))+1
-    j,i
+    j,i, (j-1)*arena.nrows + i
 end
 
 function assign_bin(x,y, arena::MazeArena;binsize=arena.colsize)
