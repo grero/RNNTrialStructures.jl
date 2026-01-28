@@ -1415,7 +1415,9 @@ end
 function compute_error(trialstruct::NavigationTrial{T}, output::Array{T,3}, output_true::Array{T,3}) where T <: Real
     # we should differentiate depending on what the output is. If it is just position, an error is the deviation from the cell center
     # error for each position
-    err = fill(T(NaN), size(output,2), size(output,3))
+    nout = output_sizes(trialstruct)
+    err = fill(T(NaN), length(nout), size(output,2)*size(output,3))
+    offset_a = 0
     for (i,(output_t, output_true_t)) in enumerate(zip(eachslice(output,dims=3), eachslice(output_true,dims=3)))
         # find the sequence length
         idxc = findfirst(output_true_t .> T(0.05))
@@ -1426,9 +1428,16 @@ function compute_error(trialstruct::NavigationTrial{T}, output::Array{T,3}, outp
         else
             idx2 = idx2 - 1
         end
-        err[1:idx2-idx1+1,i] = dropdims(sum(abs2, output_t[:,idx1:idx2]-output_true_t[:,idx1:idx2],dims=1),dims=1)
+        Δ = output_t[:,idx1:idx2]-output_true_t[:,idx1:idx2]
+        offset = 0
+        for (jj,_n) in enumerate(nout)
+            vidx = (offset+1):(offset+_n)
+            err[jj, offset_a+1:offset_a+idx2-idx1+1] = dropdims(sum(abs2,Δ[vidx,:,:],dims=1),dims=1)
+            offset += _n
+        end
+        offset_a += idx2-idx1+1
     end
-    err
+    err[:,1:offset_a]
 end
 
 function performance(trialstruct::NavigationTrial{T}, output::Array{T,3}, output_true::Array{T,3};require_fixation=false) where T <: Real
