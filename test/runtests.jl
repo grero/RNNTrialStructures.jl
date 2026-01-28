@@ -290,4 +290,16 @@ end
     @test length(n_out) == 2
     @test n_out[1] == 2
     @test n_out[2] == 2
+
+    trialstruct = RNNTrialStructures.NavigationTrial(5,10,[:distance, :view, :texture],[:gaze, :position, :head_direction, :view, :movement, :distance, :texture, :conjunction], arena,apref)
+    n_out = RNNTrialStructures.output_sizes(trialstruct)
+    @test length(n_out) == 8
+    @test n_out[1] == 2
+    @test n_out[2] == 2
+    @test n_out[3] == length(trialstruct.angular_pref.μ)
+    @test n_out[4] == length(trialstruct.angular_pref.μ)
+    @test n_out[5] == 4
+    @test n_out[6] == length(trialstruct.angular_pref.μ)
+    @test n_out[7] == length(trialstruct.angular_pref.μ)
+    @test n_out[8] == 6048
 end
