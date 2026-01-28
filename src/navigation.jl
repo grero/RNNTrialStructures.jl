@@ -115,7 +115,7 @@ extent(arena::AbstractArena)  = (arena.ncols*arena.colsize, arena.nrows*arena.ro
 function assign_bin(x,y, arena::Arena;binsize=arena.colsize)
     i = round(Int64, floor(y/binsize))+1
     j = round(Int64, floor(x/binsize))+1
-    j,i
+    j,i, (j-1)*arena.nrows + i
 end
 
 function assign_bin(x,y, arena::MazeArena;binsize=arena.colsize)
@@ -197,7 +197,7 @@ function assign_surface_bin(x,y, arena;binsize=arena.colsize,binsize_wall=binsiz
         if _dl <  dm
             dm = _dl
             pm = pl
-            lm = round(Int64, floor((offset + norm(pl .- p1))./binsize_wall))+1
+            lm = offset+round(Int64, floor((norm(pl .- p1))./binsize_wall))+1
         end
         offset += round(Int64, floor(norm(p2 .- p1)/binsize_wall))
     end
@@ -205,12 +205,14 @@ function assign_surface_bin(x,y, arena;binsize=arena.colsize,binsize_wall=binsiz
     for pp in get_obstacle_points(arena)
         for (p1,p2) in zip(pp, circshift(pp,-1))
             pl = find_line_intersection((x,y), p1,p2)
-            _dl = norm((x,y) .- pl)
-            if _dl <  dm
-                dm = _dl
-                pm = pl
-                # TODO: This doesn't work if the binsize is non-uniform
-                lm = offset+round(Int64, floor((norm(pl .- p1))./binsize))+1
+            if (p1 <= pl <= p2) || (p2 <= pl <= p1)
+                _dl = norm((x,y) .- pl)
+                if _dl <  dm
+                    dm = _dl
+                    pm = pl
+                    # TODO: This doesn't work if the binsize is non-uniform
+                    lm = offset + round(Int64, floor((norm(pl .- p1))./binsize))+1
+                end
             end
             offset += round(Int64, floor(norm(p2 .- p1)/binsize))
         end
@@ -1313,6 +1315,12 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     position, head_direction, viewf, movement, dist, texture, gaze, conjunction, gazem
 end
 
+function restore_scale(trialstruct::NavigationTrial{T}, X::Matrix{T}) where T <: Real
+    width = trialstruct.arena.ncols*trialstruct.arena.colsize
+    height = trialstruct.arena.nrows*trialstruct.arena.rowsize
+    [width, height].*(X .- T(0.05))./T(0.8)
+end
+
 function num_inputs(trialstruct::NavigationTrial)
     n = 0
     if :head_direction in trialstruct.inputs
@@ -1335,6 +1343,36 @@ function num_inputs(trialstruct::NavigationTrial)
     end
     if :gaze in trialstruct.inputs
         n += 32
+    end
+    n
+end
+
+function output_sizes(trialstruct::NavigationTrial;binsize=trialstruct.arena.colsize, binsize_wall=binsize)
+    n = fill(0, length(trialstruct.outputs))
+    for (ii,output) in enumerate(trialstruct.outputs)
+        if output == :conjunction
+            #TODO: What discretization to use here 
+            # We can use the same discretization that we use for the floor
+            # For instance, if the floor uses 10 × 10 bins, we use 10 bins for
+            # each of the walls, and I guess two bins for the pillars
+            n_surface = num_surface_bins(trialstruct.arena;binsize=binsize,binsize_wall=binsize_wall)
+            n_place = num_floor_bins(trialstruct.arena;binsize=binsize)
+            n[ii] = n_surface*n_place
+        elseif output == :head_direction
+            n[ii] = length(trialstruct.angular_pref.μ)
+        elseif output == :view
+            n[ii] = length(trialstruct.angular_pref.μ)
+        elseif output == :movement
+            n[ii] = 4
+        elseif output == :position
+            n[ii] = 2
+        elseif output == :distance
+            n[ii] = 16
+        elseif output == :texture
+            n[ii] = 16
+        elseif output == :gaze
+            n[ii] = 2 # output gaze is only the main direction
+        end
     end
     n
 end
@@ -1377,7 +1415,9 @@ end
 function compute_error(trialstruct::NavigationTrial{T}, output::Array{T,3}, output_true::Array{T,3}) where T <: Real
     # we should differentiate depending on what the output is. If it is just position, an error is the deviation from the cell center
     # error for each position
-    err = fill(T(NaN), size(output,2), size(output,3))
+    nout = output_sizes(trialstruct)
+    err = fill(T(NaN), length(nout), size(output,2)*size(output,3))
+    offset_a = 0
     for (i,(output_t, output_true_t)) in enumerate(zip(eachslice(output,dims=3), eachslice(output_true,dims=3)))
         # find the sequence length
         idxc = findfirst(output_true_t .> T(0.05))
@@ -1388,9 +1428,16 @@ function compute_error(trialstruct::NavigationTrial{T}, output::Array{T,3}, outp
         else
             idx2 = idx2 - 1
         end
-        err[1:idx2-idx1+1,i] = dropdims(sum(abs2, output_t[:,idx1:idx2]-output_true_t[:,idx1:idx2],dims=1),dims=1)
+        Δ = output_t[:,idx1:idx2]-output_true_t[:,idx1:idx2]
+        offset = 0
+        for (jj,_n) in enumerate(nout)
+            vidx = (offset+1):(offset+_n)
+            err[jj, offset_a+1:offset_a+idx2-idx1+1] = dropdims(sum(abs2,Δ[vidx,:,:],dims=1),dims=1)
+            offset += _n
+        end
+        offset_a += idx2-idx1+1
     end
-    err
+    err[:,1:offset_a]
 end
 
 function performance(trialstruct::NavigationTrial{T}, output::Array{T,3}, output_true::Array{T,3};require_fixation=false) where T <: Real
