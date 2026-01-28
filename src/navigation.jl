@@ -1315,6 +1315,12 @@ function (trial::NavigationTrial{T})(;rng=Random.default_rng(),Δθstep::T=T(π/
     position, head_direction, viewf, movement, dist, texture, gaze, conjunction, gazem
 end
 
+function restore_scale(trialstruct::NavigationTrial{T}, X::Matrix{T}) where T <: Real
+    width = trialstruct.arena.ncols*trialstruct.arena.colsize
+    height = trialstruct.arena.nrows*trialstruct.arena.rowsize
+    [width, height].*(X .- T(0.05))./T(0.8)
+end
+
 function num_inputs(trialstruct::NavigationTrial)
     n = 0
     if :head_direction in trialstruct.inputs
