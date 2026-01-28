@@ -286,4 +286,8 @@ end
         end
     end
     @test qq
+    n_out = RNNTrialStructures.output_sizes(trialstruct2)
+    @test length(n_out) == 2
+    @test n_out[1] == 2
+    @test n_out[2] == 2
 end

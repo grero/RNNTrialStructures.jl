@@ -1347,6 +1347,36 @@ function num_inputs(trialstruct::NavigationTrial)
     n
 end
 
+function output_sizes(trialstruct::NavigationTrial;binsize=trialstruct.arena.colsize, binsize_wall=binsize)
+    n = fill(0, length(trialstruct.outputs))
+    for (ii,output) in enumerate(trialstruct.outputs)
+        if output == :conjunction
+            #TODO: What discretization to use here 
+            # We can use the same discretization that we use for the floor
+            # For instance, if the floor uses 10 × 10 bins, we use 10 bins for
+            # each of the walls, and I guess two bins for the pillars
+            n_surface = num_surface_bins(trialstruct.arena;binsize=binsize,binsize_wall=binsize_wall)
+            n_place = num_floor_bins(trialstruct.arena;binsize=binsize)
+            n[ii] = n_surface*n_place
+        elseif output == :head_direction
+            n[ii] = length(trialstruct.angular_pref.μ)
+        elseif output == :view
+            n[ii] = length(trialstruct.angular_pref.μ)
+        elseif output == :movement
+            n[ii] = 4
+        elseif output == :position
+            n[ii] = 2
+        elseif output == :distance
+            n[ii] = 16
+        elseif output == :texture
+            n[ii] = 16
+        elseif output == :gaze
+            n[ii] = 2 # output gaze is only the main direction
+        end
+    end
+    n
+end
+
 function num_outputs(trialstruct::NavigationTrial;binsize=trialstruct.arena.colsize, binsize_wall=binsize)
     n = 0
     if :conjunction in trialstruct.outputs
