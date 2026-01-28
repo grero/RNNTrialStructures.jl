@@ -239,6 +239,11 @@ end
     trialstruct = RNNTrialStructures.NavigationTrial(5,10,[:distance, :view, :texture],[:position], arena,apref)
     @test RNNTrialStructures.num_inputs(trialstruct) == 48
 
+    pos = RNNTrialStructures.get_position(3,2, trialstruct.arena)
+    pos_scaled = 0.8f0*pos./10.0f0 .+ 0.05f0
+    pos2 = RNNTrialStructures.restore_scale(trialstruct, reshape(pos_scaled,2,1))
+    @test pos2 ≈ pos
+
     rng = StableRNG(1234)
     position, head_direction, viewf, movement,dist,texture, gaze,conjunction,gazem = trialstruct(;rng=rng) 
     @test size(position,2) == size(head_direction,2) == size(viewf,2) == size(dist,2) == size(texture,2) == size(gaze,2) == 9
