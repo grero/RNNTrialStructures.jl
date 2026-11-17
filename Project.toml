@@ -1,7 +1,7 @@
 name = "RNNTrialStructures"
 uuid = "1c0943b8-e38f-498f-b6a0-1f910535fd85"
-authors = ["Roger Heirkstad <roger.herikstad@gmail.com>"]
 version = "0.19.0"
+authors = ["Roger Heirkstad <roger.herikstad@gmail.com>"]
 
 [deps]
 CRC32c = "8bf52ea8-c179-5cab-976a-9e18b702a9bc"
@@ -16,7 +16,14 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 CRC32c = "1.11.0"
 GeometryBasics = "0.5.10"
 LinearAlgebra = "1.11.0"
+Makie = "0.24.17"
 Random = "1.11.0"
 StableRNGs = "1.0.3"
 StatsBase = "0.24.0 - 0.34.5"
 Test = "1.11.0"
+
+[weakdeps]
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+
+[extensions]
+MakieExt = ["Makie"]
