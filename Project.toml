@@ -1,6 +1,6 @@
 name = "RNNTrialStructures"
 uuid = "1c0943b8-e38f-498f-b6a0-1f910535fd85"
-version = "0.19.0"
+version = "0.20.0"
 authors = ["Roger Heirkstad <roger.herikstad@gmail.com>"]
 
 [deps]
